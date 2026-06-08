@@ -40,11 +40,15 @@
 		9DD894B32F4047630090B9B9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD894B02F4047630090B9B9 /* SettingsView.swift */; };
 		9DD895962F405E0E0090B9B9 /* RTCVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD895952F405E0E0090B9B9 /* RTCVideoView.swift */; };
 		9DD895972F405E0E0090B9B9 /* PiPVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD895942F405E0E0090B9B9 /* PiPVideoView.swift */; };
-		A1B2C3D42F0A000200000001 /* GeminiConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000001 /* GeminiConfig.swift */; };
-		A1B2C3D42F0A000200000002 /* GeminiLiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000002 /* GeminiLiveService.swift */; };
+		A1B2C3D42F0A000200000001 /* GrokConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000001 /* GrokConfig.swift */; };
+		A1B2C3D42F0A000200000002 /* GrokLiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000002 /* GrokLiveService.swift */; };
 		A1B2C3D42F0A000200000003 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000003 /* AudioManager.swift */; };
-		A1B2C3D42F0A000200000004 /* GeminiSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000004 /* GeminiSessionViewModel.swift */; };
-		A1B2C3D42F0A000200000005 /* GeminiOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000005 /* GeminiOverlayView.swift */; };
+		A1B2C3D42F0A000200000004 /* GrokSessionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000004 /* GrokSessionViewModel.swift */; };
+		A1B2C3D42F0A000200000005 /* GrokOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000005 /* GrokOverlayView.swift */; };
+		A1B2C3D42F0A000200000006 /* DisplayHUDManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000006 /* DisplayHUDManager.swift */; };
+		A1B2C3D42F0A000200000007 /* WakeWordManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0A000100000007 /* WakeWordManager.swift */; };
+		A1B2C3D42F0A000200000008 /* Porcupine in Frameworks */ = {isa = PBXBuildFile; productRef = A1B2C3D42F0A000400000001 /* Porcupine */; };
+		8FD96B952E6F0F7D00F56AB3 /* MWDATDisplay in Frameworks */ = {isa = PBXBuildFile; productRef = 8FD96B942E6F0F7D00F56AB3 /* MWDATDisplay */; };
 		E66D30242E7DA71900470B48 /* MockDeviceKitButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66D30232E7DA71900470B48 /* MockDeviceKitButton.swift */; };
 		E6A188482EB918740097D0E1 /* StreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A188472EB918740097D0E1 /* StreamView.swift */; };
 		E6DA451D2E79A63100E3F688 /* MockDeviceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6DA45182E79A63100E3F688 /* MockDeviceCardView.swift */; };
@@ -110,11 +114,13 @@
 		9DD894B02F4047630090B9B9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9DD895942F405E0E0090B9B9 /* PiPVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiPVideoView.swift; sourceTree = "<group>"; };
 		9DD895952F405E0E0090B9B9 /* RTCVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RTCVideoView.swift; sourceTree = "<group>"; };
-		A1B2C3D42F0A000100000001 /* GeminiConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiConfig.swift; sourceTree = "<group>"; };
-		A1B2C3D42F0A000100000002 /* GeminiLiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiLiveService.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0A000100000001 /* GrokConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokConfig.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0A000100000002 /* GrokLiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokLiveService.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0A000100000003 /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
-		A1B2C3D42F0A000100000004 /* GeminiSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiSessionViewModel.swift; sourceTree = "<group>"; };
-		A1B2C3D42F0A000100000005 /* GeminiOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiOverlayView.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0A000100000004 /* GrokSessionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokSessionViewModel.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0A000100000005 /* GrokOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrokOverlayView.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0A000100000006 /* DisplayHUDManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayHUDManager.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0A000100000007 /* WakeWordManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WakeWordManager.swift; sourceTree = "<group>"; };
 		E66D30232E7DA71900470B48 /* MockDeviceKitButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDeviceKitButton.swift; sourceTree = "<group>"; };
 		E699CC952E8150670052C240 /* CameraAccessTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CameraAccessTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E6A188472EB918740097D0E1 /* StreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamView.swift; sourceTree = "<group>"; };
@@ -139,6 +145,8 @@
 				8FD96B952E6F0F7D00F56AB1 /* MWDATCore in Frameworks */,
 				9DD6CAFE2F3C62DA00ED7098 /* WebRTC in Frameworks */,
 				8FD96B952E6F0F7D00F56AB2 /* MWDATCamera in Frameworks */,
+				8FD96B952E6F0F7D00F56AB3 /* MWDATDisplay in Frameworks */,
+				A1B2C3D42F0A000200000008 /* Porcupine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -208,7 +216,7 @@
 				9DD6CAAD2F3C426600ED7098 /* Secrets.swift */,
 				9DD6CAAE2F3C426600ED7098 /* Secrets.swift.example */,
 				9D3C69602F367CF700E641A5 /* iPhone */,
-				A1B2C3D42F0A000300000001 /* Gemini */,
+				A1B2C3D42F0A000300000001 /* Grok */,
 				8FD96B702E6F0A9800F56AB1 /* ViewModels */,
 				8FD96B762E6F0A9800F56AB1 /* Views */,
 				8FD96B772E6F0A9800F56AB1 /* Assets.xcassets */,
@@ -228,7 +236,7 @@
 				8FFD5FF22E8422580035E446 /* CircleButton.swift */,
 				8FFD5FF32E8422580035E446 /* CustomButton.swift */,
 				E6DA45172E79A63100E3F688 /* CardView.swift */,
-				A1B2C3D42F0A000100000005 /* GeminiOverlayView.swift */,
+				A1B2C3D42F0A000100000005 /* GrokOverlayView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -266,15 +274,17 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
-		A1B2C3D42F0A000300000001 /* Gemini */ = {
+		A1B2C3D42F0A000300000001 /* Grok */ = {
 			isa = PBXGroup;
 			children = (
 				A1B2C3D42F0A000100000003 /* AudioManager.swift */,
-				A1B2C3D42F0A000100000001 /* GeminiConfig.swift */,
-				A1B2C3D42F0A000100000002 /* GeminiLiveService.swift */,
-				A1B2C3D42F0A000100000004 /* GeminiSessionViewModel.swift */,
+				A1B2C3D42F0A000100000001 /* GrokConfig.swift */,
+				A1B2C3D42F0A000100000002 /* GrokLiveService.swift */,
+				A1B2C3D42F0A000100000006 /* DisplayHUDManager.swift */,
+				A1B2C3D42F0A000100000007 /* WakeWordManager.swift */,
+				A1B2C3D42F0A000100000004 /* GrokSessionViewModel.swift */,
 			);
-			path = Gemini;
+			path = Grok;
 			sourceTree = "<group>";
 		};
 		E6DA451B2E79A63100E3F688 /* MockDeviceKit */ = {
@@ -364,6 +374,7 @@
 			packageReferences = (
 				95F7F3332DEF0D91006D1C1A /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
 				9DD6CB0A2F3C648800ED7098 /* XCRemoteSwiftPackageReference "WebRTC" */,
+				A1B2C3D42F0A000400000000 /* XCRemoteSwiftPackageReference "porcupine" */,
 			);
 			productRefGroup = 7A7A7A7A7A7A7A7A7A7A7A7A /* Products */;
 			projectDirPath = "";
@@ -430,13 +441,15 @@
 				8FFD5FF52E8422580035E446 /* CircleButton.swift in Sources */,
 				8FFD5FF62E8422580035E446 /* CustomButton.swift in Sources */,
 				E6FD3BCE2EB4D53A00E7FE5D /* NonStreamView.swift in Sources */,
-				A1B2C3D42F0A000200000001 /* GeminiConfig.swift in Sources */,
-				A1B2C3D42F0A000200000002 /* GeminiLiveService.swift in Sources */,
+				A1B2C3D42F0A000200000001 /* GrokConfig.swift in Sources */,
+				A1B2C3D42F0A000200000002 /* GrokLiveService.swift in Sources */,
+				A1B2C3D42F0A000200000006 /* DisplayHUDManager.swift in Sources */,
+				A1B2C3D42F0A000200000007 /* WakeWordManager.swift in Sources */,
 				A1B2C3D42F0A000200000003 /* AudioManager.swift in Sources */,
-				A1B2C3D42F0A000200000004 /* GeminiSessionViewModel.swift in Sources */,
+				A1B2C3D42F0A000200000004 /* GrokSessionViewModel.swift in Sources */,
 				9DD894B22F4047630090B9B9 /* SettingsManager.swift in Sources */,
 				9DD894B32F4047630090B9B9 /* SettingsView.swift in Sources */,
-				A1B2C3D42F0A000200000005 /* GeminiOverlayView.swift in Sources */,
+				A1B2C3D42F0A000200000005 /* GrokOverlayView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -726,7 +739,7 @@
 			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
 			requirement = {
 				kind = exactVersion;
-				version = 0.4.0;
+				version = 0.7.0;
 			};
 		};
 		9DD6CAFC2F3C62DA00ED7098 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
@@ -745,6 +758,14 @@
 				minimumVersion = 140.0.0;
 			};
 		};
+		A1B2C3D42F0A000400000000 /* XCRemoteSwiftPackageReference "porcupine" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Picovoice/porcupine.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -758,6 +779,11 @@
 			package = 95F7F3332DEF0D91006D1C1A /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
 			productName = MWDATCamera;
 		};
+		8FD96B942E6F0F7D00F56AB3 /* MWDATDisplay */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 95F7F3332DEF0D91006D1C1A /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATDisplay;
+		};
 		9DD6CAFD2F3C62DA00ED7098 /* WebRTC */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9DD6CAFC2F3C62DA00ED7098 /* XCRemoteSwiftPackageReference "WebRTC" */;
@@ -767,6 +793,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9DD6CB0A2F3C648800ED7098 /* XCRemoteSwiftPackageReference "WebRTC" */;
 			productName = WebRTC;
+		};
+		A1B2C3D42F0A000400000001 /* Porcupine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D42F0A000400000000 /* XCRemoteSwiftPackageReference "porcupine" */;
+			productName = Porcupine;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

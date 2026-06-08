@@ -31,23 +31,28 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiConnectionState
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiUiState
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.GrokConnectionState
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.GrokUiState
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.DisplayHudConnectionState
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.WakeWordState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.openclaw.OpenClawConnectionState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.openclaw.ToolCallStatus
 
 @Composable
-fun GeminiOverlay(
-    uiState: GeminiUiState,
+fun GrokOverlay(
+    uiState: GrokUiState,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
         // Status bar
-        GeminiStatusBar(
+        GrokStatusBar(
             connectionState = uiState.connectionState,
             openClawState = uiState.openClawConnectionState,
+            hudState = uiState.hudConnectionState,
+            wakeWordState = uiState.wakeWordState,
+            isWakeWordListening = uiState.isWakeWordListening,
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -76,9 +81,12 @@ fun GeminiOverlay(
 }
 
 @Composable
-fun GeminiStatusBar(
-    connectionState: GeminiConnectionState,
+fun GrokStatusBar(
+    connectionState: GrokConnectionState,
     openClawState: OpenClawConnectionState,
+    hudState: DisplayHudConnectionState,
+    wakeWordState: WakeWordState,
+    isWakeWordListening: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -86,13 +94,17 @@ fun GeminiStatusBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         StatusPill(
-            label = "AI",
-            color = when (connectionState) {
-                is GeminiConnectionState.Ready -> Color(0xFF4CAF50)
-                is GeminiConnectionState.Connecting,
-                is GeminiConnectionState.SettingUp -> Color(0xFFFF9800)
-                is GeminiConnectionState.Error -> Color(0xFFF44336)
-                is GeminiConnectionState.Disconnected -> Color(0xFF9E9E9E)
+            label = if (isWakeWordListening) wakeWordState.displayText else "AI",
+            color = if (isWakeWordListening) {
+                Color(0xFF2196F3)
+            } else {
+                when (connectionState) {
+                    is GrokConnectionState.Ready -> Color(0xFF4CAF50)
+                    is GrokConnectionState.Connecting,
+                    is GrokConnectionState.SettingUp -> Color(0xFFFF9800)
+                    is GrokConnectionState.Error -> Color(0xFFF44336)
+                    is GrokConnectionState.Disconnected -> Color(0xFF9E9E9E)
+                }
             },
         )
 
@@ -107,6 +119,17 @@ fun GeminiStatusBar(
                 },
             )
         }
+
+        StatusPill(
+            label = hudState.displayText,
+            color = when (hudState) {
+                DisplayHudConnectionState.READY -> Color(0xFF4CAF50)
+                DisplayHudConnectionState.CONNECTING -> Color(0xFFFF9800)
+                DisplayHudConnectionState.ERROR -> Color(0xFFF44336)
+                DisplayHudConnectionState.DISABLED,
+                DisplayHudConnectionState.DISCONNECTED -> Color(0xFF9E9E9E)
+            },
+        )
     }
 }
 

@@ -105,7 +105,7 @@ class MockDeviceKitViewModel(application: Application) : AndroidViewModel(applic
       try {
         Log.d(TAG, "Setting camera feed from URI: $uri for device: ${deviceInfo.deviceId}")
         // getCameraKit().setCameraFeed() sets video content for streaming
-        // This video will be streamed when StreamSession.videoStream is active
+        // This video will be streamed when the DAT camera Stream is active
         deviceInfo.device.getCameraKit().setCameraFeed(uri)
         updateDeviceInfo(deviceInfo.copy(hasCameraFeed = true))
         Log.d(TAG, "Successfully set camera feed for device: ${deviceInfo.deviceId}")
@@ -120,7 +120,7 @@ class MockDeviceKitViewModel(application: Application) : AndroidViewModel(applic
       try {
         Log.d(TAG, "Setting captured image from URI: $uri for device: ${deviceInfo.deviceId}")
         // getCameraKit().setCapturedImage() sets photo for capture operations
-        // This image will be returned when StreamSession.capturePhoto() is called
+        // This image will be returned when Stream.capturePhoto() is called
         deviceInfo.device.getCameraKit().setCapturedImage(uri)
         updateDeviceInfo(deviceInfo.copy(hasCapturedImage = true))
         Log.d(TAG, "Successfully set captured image for device: ${deviceInfo.deviceId}")

@@ -3,7 +3,7 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.openclaw
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiConfig
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.GrokConfig
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
@@ -34,7 +34,7 @@ class OpenClawEventClient {
         .build()
 
     fun connect() {
-        if (!GeminiConfig.isOpenClawConfigured) {
+        if (!GrokConfig.isOpenClawConfigured) {
             Log.d(TAG, "Not configured, skipping")
             return
         }
@@ -53,10 +53,10 @@ class OpenClawEventClient {
     }
 
     private fun establishConnection() {
-        val host = GeminiConfig.openClawHost
+        val host = GrokConfig.openClawHost
             .replace("http://", "")
             .replace("https://", "")
-        val port = GeminiConfig.openClawPort
+        val port = GrokConfig.openClawPort
         val url = "ws://$host:$port"
 
         Log.d(TAG, "Connecting to $url")
@@ -145,7 +145,7 @@ class OpenClawEventClient {
                 put("commands", JSONArray())
                 put("permissions", JSONObject())
                 put("auth", JSONObject().apply {
-                    put("token", GeminiConfig.openClawGatewayToken)
+                    put("token", GrokConfig.openClawGatewayToken)
                 })
             })
         }

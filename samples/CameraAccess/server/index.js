@@ -1,6 +1,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { exec } = require("child_process");
 const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 8080;
@@ -15,6 +16,23 @@ const ROOM_GRACE_PERIOD_MS = 60_000;
 const EXPRESSTURN_SERVER = process.env.EXPRESSTURN_SERVER || "free.expressturn.com";
 const EXPRESSTURN_USER = process.env.EXPRESSTURN_USER || "efPU52K4SLOQ34W2QY";
 const EXPRESSTURN_PASS = process.env.EXPRESSTURN_PASS || "1TJPNFxHKXrZfelz";
+
+// Optional Grok OAuth broker. This lets the mobile apps avoid storing an xAI API key.
+// Configure VISIONCLAW_AUTH_TOKEN, then either XAI_OAUTH_REFRESH_TOKEN +
+// XAI_OAUTH_CLIENT_ID, XAI_OAUTH_ACCESS_TOKEN, or XAI_OAUTH_TOKEN_COMMAND.
+const VISIONCLAW_AUTH_TOKEN =
+  process.env.VISIONCLAW_AUTH_TOKEN ||
+  process.env.GROK_AUTH_BROKER_TOKEN ||
+  process.env.OPENCLAW_GATEWAY_TOKEN ||
+  "";
+const XAI_OAUTH_TOKEN_URL =
+  process.env.XAI_OAUTH_TOKEN_URL || "https://auth.x.ai/oauth2/token";
+const XAI_OAUTH_CLIENT_ID = process.env.XAI_OAUTH_CLIENT_ID || "";
+const XAI_OAUTH_CLIENT_SECRET = process.env.XAI_OAUTH_CLIENT_SECRET || "";
+let xaiOAuthRefreshToken = process.env.XAI_OAUTH_REFRESH_TOKEN || "";
+const XAI_OAUTH_ACCESS_TOKEN = process.env.XAI_OAUTH_ACCESS_TOKEN || "";
+const XAI_OAUTH_TOKEN_COMMAND = process.env.XAI_OAUTH_TOKEN_COMMAND || "";
+let cachedGrokAuth = null; // { accessToken, expiresAt }
 
 function getTurnCredentials() {
   return {
@@ -34,16 +52,202 @@ function getTurnCredentials() {
   };
 }
 
+function sendJSON(res, statusCode, body) {
+  res.writeHead(statusCode, {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": "*",
+  });
+  res.end(JSON.stringify(body));
+}
+
+function isAuthorized(req) {
+  if (!VISIONCLAW_AUTH_TOKEN) {
+    return false;
+  }
+  const auth = req.headers.authorization || "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  const headerToken = req.headers["x-visionclaw-token"] || "";
+  return bearer === VISIONCLAW_AUTH_TOKEN || headerToken === VISIONCLAW_AUTH_TOKEN;
+}
+
+function normalizeExpiresAt(value, fallbackSeconds = 300) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const millis = value < 4_000_000_000 ? value * 1000 : value;
+    return new Date(millis).toISOString();
+  }
+  if (typeof value === "string" && value.trim()) {
+    const millis = Date.parse(value);
+    if (!Number.isNaN(millis)) {
+      return new Date(millis).toISOString();
+    }
+  }
+  return new Date(Date.now() + fallbackSeconds * 1000).toISOString();
+}
+
+function isFresh(auth) {
+  if (!auth || !auth.accessToken) {
+    return false;
+  }
+  const expiresAt = Date.parse(auth.expiresAt || "");
+  if (Number.isNaN(expiresAt)) {
+    return true;
+  }
+  return expiresAt - Date.now() > 60_000;
+}
+
+function parseCommandToken(stdout) {
+  const output = String(stdout || "").trim();
+  if (!output) {
+    throw new Error("token command produced no output");
+  }
+  try {
+    const json = JSON.parse(output);
+    const accessToken = json.accessToken || json.access_token || json.token;
+    if (!accessToken) {
+      throw new Error("token command JSON did not include accessToken");
+    }
+    return {
+      accessToken,
+      expiresAt: normalizeExpiresAt(
+        json.expiresAt || json.expires_at,
+        Number(json.expiresIn || json.expires_in || 300)
+      ),
+    };
+  } catch (error) {
+    if (output.startsWith("{")) {
+      throw error;
+    }
+    return {
+      accessToken: output,
+      expiresAt: normalizeExpiresAt(null, 300),
+    };
+  }
+}
+
+function runTokenCommand() {
+  return new Promise((resolve, reject) => {
+    exec(
+      XAI_OAUTH_TOKEN_COMMAND,
+      { timeout: 10_000, maxBuffer: 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error(stderr.trim() || error.message));
+          return;
+        }
+        try {
+          resolve(parseCommandToken(stdout));
+        } catch (parseError) {
+          reject(parseError);
+        }
+      }
+    );
+  });
+}
+
+async function refreshXaiOAuthToken() {
+  if (!xaiOAuthRefreshToken) {
+    throw new Error("XAI_OAUTH_REFRESH_TOKEN is not configured");
+  }
+  if (!XAI_OAUTH_CLIENT_ID) {
+    throw new Error("XAI_OAUTH_CLIENT_ID is not configured");
+  }
+
+  const body = new URLSearchParams();
+  body.set("grant_type", "refresh_token");
+  body.set("refresh_token", xaiOAuthRefreshToken);
+  body.set("client_id", XAI_OAUTH_CLIENT_ID);
+  if (XAI_OAUTH_CLIENT_SECRET) {
+    body.set("client_secret", XAI_OAUTH_CLIENT_SECRET);
+  }
+
+  const response = await fetch(XAI_OAUTH_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`xAI OAuth refresh failed: HTTP ${response.status} ${text.slice(0, 200)}`);
+  }
+  const json = JSON.parse(text);
+  if (!json.access_token) {
+    throw new Error("xAI OAuth refresh did not return access_token");
+  }
+  if (json.refresh_token) {
+    xaiOAuthRefreshToken = json.refresh_token;
+  }
+  return {
+    accessToken: json.access_token,
+    expiresAt: normalizeExpiresAt(null, Number(json.expires_in || 300)),
+  };
+}
+
+async function getGrokAuthorization() {
+  if (isFresh(cachedGrokAuth)) {
+    return cachedGrokAuth;
+  }
+
+  if (XAI_OAUTH_ACCESS_TOKEN) {
+    cachedGrokAuth = {
+      accessToken: XAI_OAUTH_ACCESS_TOKEN,
+      expiresAt: normalizeExpiresAt(null, 300),
+    };
+    return cachedGrokAuth;
+  }
+
+  if (XAI_OAUTH_TOKEN_COMMAND) {
+    cachedGrokAuth = await runTokenCommand();
+    return cachedGrokAuth;
+  }
+
+  cachedGrokAuth = await refreshXaiOAuthToken();
+  return cachedGrokAuth;
+}
+
 // HTTP server for serving the web viewer
 const httpServer = http.createServer((req, res) => {
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Authorization, Content-Type, X-VisionClaw-Token",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+    });
+    res.end();
+    return;
+  }
+
   // TURN credentials API endpoint
   if (req.url === "/api/turn") {
     const creds = getTurnCredentials();
-    res.writeHead(200, {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    });
-    res.end(JSON.stringify(creds));
+    sendJSON(res, 200, creds);
+    return;
+  }
+
+  if (req.url === "/api/grok/token") {
+    if (!VISIONCLAW_AUTH_TOKEN) {
+      sendJSON(res, 503, {
+        error: "VISIONCLAW_AUTH_TOKEN or GROK_AUTH_BROKER_TOKEN is not configured",
+      });
+      return;
+    }
+    if (!isAuthorized(req)) {
+      sendJSON(res, 401, { error: "Unauthorized" });
+      return;
+    }
+
+    getGrokAuthorization()
+      .then((auth) => {
+        sendJSON(res, 200, {
+          accessToken: auth.accessToken,
+          tokenType: "Bearer",
+          expiresAt: auth.expiresAt,
+        });
+      })
+      .catch((error) => {
+        console.error(`[GrokAuth] ${error.message}`);
+        sendJSON(res, 500, { error: error.message });
+      });
     return;
   }
 

@@ -1,4 +1,4 @@
-package com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini
+package com.meta.wearable.dat.externalsampleapps.cameraaccess.grok
 
 import android.annotation.SuppressLint
 import android.media.AudioAttributes
@@ -30,14 +30,14 @@ class AudioManager {
         if (isCapturing) return
 
         val bufferSize = AudioRecord.getMinBufferSize(
-            GeminiConfig.INPUT_AUDIO_SAMPLE_RATE,
+            GrokConfig.INPUT_AUDIO_SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
 
         audioRecord = AudioRecord(
             MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-            GeminiConfig.INPUT_AUDIO_SAMPLE_RATE,
+            GrokConfig.INPUT_AUDIO_SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
             AudioFormat.ENCODING_PCM_16BIT,
             bufferSize
@@ -52,7 +52,7 @@ class AudioManager {
             )
             .setAudioFormat(
                 AudioFormat.Builder()
-                    .setSampleRate(GeminiConfig.OUTPUT_AUDIO_SAMPLE_RATE)
+                    .setSampleRate(GrokConfig.OUTPUT_AUDIO_SAMPLE_RATE)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .build()
@@ -60,7 +60,7 @@ class AudioManager {
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(
                 AudioTrack.getMinBufferSize(
-                    GeminiConfig.OUTPUT_AUDIO_SAMPLE_RATE,
+                    GrokConfig.OUTPUT_AUDIO_SAMPLE_RATE,
                     AudioFormat.CHANNEL_OUT_MONO,
                     AudioFormat.ENCODING_PCM_16BIT
                 ) * 2

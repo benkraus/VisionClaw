@@ -19,7 +19,7 @@ struct StreamSessionView: View {
   let wearables: WearablesInterface
   @ObservedObject private var wearablesViewModel: WearablesViewModel
   @StateObject private var viewModel: StreamSessionViewModel
-  @StateObject private var geminiVM = GeminiSessionViewModel()
+  @StateObject private var grokVM = GrokSessionViewModel()
   @StateObject private var webrtcVM = WebRTCSessionViewModel()
 
   init(wearables: WearablesInterface, wearablesVM: WearablesViewModel) {
@@ -32,19 +32,19 @@ struct StreamSessionView: View {
     ZStack {
       if viewModel.isStreaming {
         // Full-screen video view with streaming controls
-        StreamView(viewModel: viewModel, wearablesVM: wearablesViewModel, geminiVM: geminiVM, webrtcVM: webrtcVM)
+        StreamView(viewModel: viewModel, wearablesVM: wearablesViewModel, grokVM: grokVM, webrtcVM: webrtcVM)
       } else {
         // Pre-streaming setup view with permissions and start button
         NonStreamView(viewModel: viewModel, wearablesVM: wearablesViewModel)
       }
     }
     .task {
-      viewModel.geminiSessionVM = geminiVM
+      viewModel.grokSessionVM = grokVM
       viewModel.webrtcSessionVM = webrtcVM
-      geminiVM.streamingMode = viewModel.streamingMode
+      grokVM.streamingMode = viewModel.streamingMode
     }
     .onChange(of: viewModel.streamingMode) { newMode in
-      geminiVM.streamingMode = newMode
+      grokVM.streamingMode = newMode
     }
     .onAppear {
       UIApplication.shared.isIdleTimerDisabled = true

@@ -6,8 +6,18 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+// StreamViewModel - DAT Camera Streaming API Demo
+//
+// This ViewModel demonstrates the DAT Camera Streaming APIs for:
+// - Creating and managing device sessions with wearable devices
+// - Attaching camera streams to a session
+// - Receiving video frames from device cameras
+// - Capturing photos during streaming sessions
+// - Forwarding frames to Grok and WebRTC integrations
+
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.stream
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Intent
 import android.graphics.Bitmap
@@ -24,16 +34,20 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.meta.wearable.dat.camera.StreamSession
-import com.meta.wearable.dat.camera.startStreamSession
+import com.meta.wearable.dat.camera.Stream
+import com.meta.wearable.dat.camera.addStream
 import com.meta.wearable.dat.camera.types.PhotoData
 import com.meta.wearable.dat.camera.types.StreamConfiguration
-import com.meta.wearable.dat.camera.types.StreamSessionState
+import com.meta.wearable.dat.camera.types.StreamError
+import com.meta.wearable.dat.camera.types.StreamState
 import com.meta.wearable.dat.camera.types.VideoFrame
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiSessionViewModel
+import com.meta.wearable.dat.core.session.DeviceSession
+import com.meta.wearable.dat.core.session.DeviceSessionState
+import com.meta.wearable.dat.core.types.DeviceSessionError
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.GrokSessionViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.phone.PhoneCameraManager
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.webrtc.WebRTCSessionViewModel
@@ -49,6 +63,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@SuppressLint("AutoCloseableUse")
 class StreamViewModel(
     application: Application,
     private val wearablesViewModel: WearablesViewModel,
@@ -57,69 +72,165 @@ class StreamViewModel(
   companion object {
     private const val TAG = "StreamViewModel"
     private val INITIAL_STATE = StreamUiState()
+    private val TERMINAL_STREAM_STATES = setOf(StreamState.CLOSED)
   }
 
   private val deviceSelector: DeviceSelector = wearablesViewModel.deviceSelector
-  private var streamSession: StreamSession? = null
+  private var session: DeviceSession? = null
+  private var stream: Stream? = null
 
   private val _uiState = MutableStateFlow(INITIAL_STATE)
   val uiState: StateFlow<StreamUiState> = _uiState.asStateFlow()
 
   private var videoJob: Job? = null
-  private var stateJob: Job? = null
+  private var streamStateJob: Job? = null
+  private var streamErrorJob: Job? = null
+  private var sessionStateJob: Job? = null
+  private var sessionErrorJob: Job? = null
+  private var previousDeviceSessionState: DeviceSessionState? = null
 
   // VisionClaw additions
-  var geminiViewModel: GeminiSessionViewModel? = null
+  var grokViewModel: GrokSessionViewModel? = null
+    set(value) {
+      field = value
+      value?.setDisplayDeviceSession(currentDeviceSession)
+    }
   var webrtcViewModel: WebRTCSessionViewModel? = null
   private var phoneCameraManager: PhoneCameraManager? = null
 
+  val currentDeviceSession: DeviceSession?
+    get() = session?.takeIf { it.state.value == DeviceSessionState.STARTED }
+
   fun startStream() {
-    videoJob?.cancel()
-    stateJob?.cancel()
+    stopJobsOnly()
+    phoneCameraManager?.stop()
+    phoneCameraManager = null
+    previousDeviceSessionState = null
 
-    // Start foreground service to keep streaming alive in background / screen locked
     StreamingService.start(getApplication())
+    _uiState.update {
+      INITIAL_STATE.copy(
+          streamingMode = StreamingMode.GLASSES,
+          streamState = StreamState.STARTING,
+      )
+    }
 
-    val streamSession =
-        Wearables.startStreamSession(
-                getApplication(),
-                deviceSelector,
-                StreamConfiguration(videoQuality = VideoQuality.MEDIUM, 24),
-            )
-            .also { streamSession = it }
-    _uiState.update { it.copy(streamingMode = StreamingMode.GLASSES) }
-    videoJob = viewModelScope.launch { streamSession.videoStream.collect { handleVideoFrame(it) } }
-    stateJob =
-        viewModelScope.launch {
-          streamSession.state.collect { currentState ->
-            val prevState = _uiState.value.streamSessionState
-            _uiState.update { it.copy(streamSessionState = currentState) }
+    if (session == null) {
+      Wearables.createSession(deviceSelector)
+          .onSuccess { createdSession ->
+            session = createdSession
+            grokViewModel?.setDisplayDeviceSession(createdSession)
+            sessionErrorJob = viewModelScope.launch {
+              createdSession.errors.collect { error -> handleSessionError(error) }
+            }
+            createdSession.start()
+          }
+          .onFailure { error, _ ->
+            Log.e(TAG, "Failed to create session: ${error.description}")
+            handleSessionError(error)
+          }
+      if (session == null) return
+    }
 
-            // navigate back when state transitioned to STOPPED
-            if (currentState != prevState && currentState == StreamSessionState.STOPPED) {
+    startStreamInternal()
+  }
+
+  private fun startStreamInternal() {
+    sessionStateJob = viewModelScope.launch {
+      session?.state?.collect { currentState ->
+        val previousState = previousDeviceSessionState
+        previousDeviceSessionState = currentState
+
+        when (currentState) {
+          DeviceSessionState.STARTED -> {
+            grokViewModel?.setDisplayDeviceSession(session)
+            if (previousState == DeviceSessionState.PAUSED && stream != null) {
+              Log.d(TAG, "Session resumed from PAUSED; keeping existing stream")
+              return@collect
+            }
+            attachCameraStream()
+          }
+          DeviceSessionState.PAUSED -> {
+            Log.d(TAG, "Session paused; keeping stream for resume")
+          }
+          DeviceSessionState.STOPPED -> {
+            if (previousState != null) {
               stopStream()
               wearablesViewModel.navigateToDeviceSelection()
             }
           }
+          else -> Unit
+        }
+      }
+    }
+  }
+
+  private fun attachCameraStream() {
+    videoJob?.cancel()
+    streamStateJob?.cancel()
+    streamErrorJob?.cancel()
+    stream?.stop()
+    stream = null
+
+    session
+        ?.addStream(StreamConfiguration(videoQuality = VideoQuality.MEDIUM, frameRate = 24))
+        ?.onSuccess { addedStream ->
+          stream = addedStream
+          videoJob = viewModelScope.launch {
+            addedStream.videoStream.collect { handleVideoFrame(it) }
+          }
+          streamStateJob = viewModelScope.launch {
+            addedStream.state.collect { currentState ->
+              val previousState = _uiState.value.streamState
+              _uiState.update { it.copy(streamState = currentState) }
+
+              val wasActive = previousState !in TERMINAL_STREAM_STATES
+              val isTerminated = currentState in TERMINAL_STREAM_STATES
+              if (wasActive && isTerminated) {
+                stopStream()
+                wearablesViewModel.navigateToDeviceSelection()
+              }
+            }
+          }
+          streamErrorJob = viewModelScope.launch {
+            addedStream.errorStream.collect { error ->
+              Log.d(TAG, "Stream error received: $error (${error.description})")
+              if (error == StreamError.STREAM_ERROR) return@collect
+              wearablesViewModel.setRecentError(error.description)
+              stopStream()
+              wearablesViewModel.navigateToDeviceSelection()
+            }
+          }
+          addedStream.start()
+        }
+        ?.onFailure { error, _ ->
+          Log.e(TAG, "Failed to add stream to session: ${error.description}")
+          wearablesViewModel.setRecentError(error.description)
+          stopStream()
+          wearablesViewModel.navigateToDeviceSelection()
         }
   }
 
   fun startPhoneCamera(lifecycleOwner: LifecycleOwner) {
+    stopJobsOnly()
+    stream?.stop()
+    stream = null
+    session?.stop()
+    session = null
+    grokViewModel?.setDisplayDeviceSession(null)
+    StreamingService.start(getApplication())
+
     val manager = PhoneCameraManager(getApplication())
     phoneCameraManager = manager
 
     manager.onFrameCaptured = { bitmap ->
-      _uiState.update { it.copy(videoFrame = bitmap) }
-      // Forward to Gemini (throttled inside the VM)
-      geminiViewModel?.sendVideoFrameIfThrottled(bitmap)
-      // Forward to WebRTC (every frame)
-      webrtcViewModel?.pushVideoFrame(bitmap)
+      publishFrame(bitmap)
     }
 
     _uiState.update {
-      it.copy(
-        streamingMode = StreamingMode.PHONE,
-        streamSessionState = StreamSessionState.STREAMING,
+      INITIAL_STATE.copy(
+          streamingMode = StreamingMode.PHONE,
+          streamState = StreamState.STREAMING,
       )
     }
     manager.start(lifecycleOwner)
@@ -127,18 +238,29 @@ class StreamViewModel(
   }
 
   fun stopStream() {
-    // Stop foreground service
     StreamingService.stop(getApplication())
-
-    videoJob?.cancel()
-    videoJob = null
-    stateJob?.cancel()
-    stateJob = null
-    streamSession?.close()
-    streamSession = null
+    stopJobsOnly()
+    stream?.stop()
+    stream = null
+    session?.stop()
+    session = null
+    grokViewModel?.setDisplayDeviceSession(null)
     phoneCameraManager?.stop()
     phoneCameraManager = null
     _uiState.update { INITIAL_STATE }
+  }
+
+  private fun stopJobsOnly() {
+    videoJob?.cancel()
+    videoJob = null
+    streamStateJob?.cancel()
+    streamStateJob = null
+    streamErrorJob?.cancel()
+    streamErrorJob = null
+    sessionStateJob?.cancel()
+    sessionStateJob = null
+    sessionErrorJob?.cancel()
+    sessionErrorJob = null
   }
 
   fun capturePhoto() {
@@ -147,36 +269,33 @@ class StreamViewModel(
       return
     }
 
-    if (uiState.value.streamSessionState == StreamSessionState.STREAMING) {
-      // Phone mode: capture current video frame as photo
-      if (uiState.value.streamingMode == StreamingMode.PHONE) {
-        uiState.value.videoFrame?.let { frame ->
-          _uiState.update { it.copy(capturedPhoto = frame, isShareDialogVisible = true) }
-        }
-        return
-      }
+    if (uiState.value.streamState != StreamState.STREAMING) {
+      Log.w(TAG, "Cannot capture photo: stream not active (state=${uiState.value.streamState})")
+      return
+    }
 
-      Log.d(TAG, "Starting photo capture")
-      _uiState.update { it.copy(isCapturing = true) }
-
-      viewModelScope.launch {
-        streamSession
-            ?.capturePhoto()
-            ?.onSuccess { photoData ->
-              Log.d(TAG, "Photo capture successful")
-              handlePhotoData(photoData)
-              _uiState.update { it.copy(isCapturing = false) }
-            }
-            ?.onFailure {
-              Log.e(TAG, "Photo capture failed")
-              _uiState.update { it.copy(isCapturing = false) }
-            }
+    if (uiState.value.streamingMode == StreamingMode.PHONE) {
+      uiState.value.videoFrame?.let { frame ->
+        _uiState.update { it.copy(capturedPhoto = frame, isShareDialogVisible = true) }
       }
-    } else {
-      Log.w(
-          TAG,
-          "Cannot capture photo: stream not active (state=${uiState.value.streamSessionState})",
-      )
+      return
+    }
+
+    Log.d(TAG, "Starting photo capture")
+    _uiState.update { it.copy(isCapturing = true) }
+
+    viewModelScope.launch {
+      stream
+          ?.capturePhoto()
+          ?.onSuccess { photoData ->
+            Log.d(TAG, "Photo capture successful")
+            handlePhotoData(photoData)
+            _uiState.update { it.copy(isCapturing = false) }
+          }
+          ?.onFailure { error, _ ->
+            Log.e(TAG, "Photo capture failed: ${error.description}")
+            _uiState.update { it.copy(isCapturing = false) }
+          }
     }
   }
 
@@ -209,51 +328,59 @@ class StreamViewModel(
       chooser.flags = Intent.FLAG_ACTIVITY_NEW_TASK
       context.startActivity(chooser)
     } catch (e: IOException) {
-      Log.e("StreamViewModel", "Failed to share photo", e)
+      Log.e(TAG, "Failed to share photo", e)
     }
   }
 
+  private fun handleSessionError(error: DeviceSessionError) {
+    Log.e(TAG, "Session error: ${error.description}")
+    wearablesViewModel.setRecentError(error.description)
+    stopStream()
+    wearablesViewModel.navigateToDeviceSelection()
+  }
+
   private fun handleVideoFrame(videoFrame: VideoFrame) {
-    // VideoFrame contains raw I420 video data in a ByteBuffer
     val buffer = videoFrame.buffer
     val dataSize = buffer.remaining()
     val byteArray = ByteArray(dataSize)
 
-    // Save current position
     val originalPosition = buffer.position()
     buffer.get(byteArray)
-    // Restore position
     buffer.position(originalPosition)
 
-    // Convert I420 to NV21 format which is supported by Android's YuvImage
     val nv21 = convertI420toNV21(byteArray, videoFrame.width, videoFrame.height)
     val image = YuvImage(nv21, ImageFormat.NV21, videoFrame.width, videoFrame.height, null)
-    val out =
+    val jpeg =
         ByteArrayOutputStream().use { stream ->
           image.compressToJpeg(Rect(0, 0, videoFrame.width, videoFrame.height), 50, stream)
           stream.toByteArray()
         }
 
-    val bitmap = BitmapFactory.decodeByteArray(out, 0, out.size)
-    _uiState.update { it.copy(videoFrame = bitmap) }
+    val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
+    if (bitmap == null) {
+      Log.w(TAG, "Failed to decode stream frame")
+      return
+    }
+    publishFrame(bitmap)
+  }
 
-    // Forward to Gemini (throttled inside the VM)
-    geminiViewModel?.sendVideoFrameIfThrottled(bitmap)
-    // Forward to WebRTC (every frame)
+  private fun publishFrame(bitmap: Bitmap) {
+    _uiState.update { it.copy(videoFrame = bitmap) }
+    grokViewModel?.sendVideoFrameIfThrottled(bitmap)
     webrtcViewModel?.pushVideoFrame(bitmap)
   }
 
-  // Convert I420 (YYYYYYYY:UUVV) to NV21 (YYYYYYYY:VUVU)
+  // Convert I420 (YYYYYYYY:UUVV) to NV21 (YYYYYYYY:VUVU).
   private fun convertI420toNV21(input: ByteArray, width: Int, height: Int): ByteArray {
     val output = ByteArray(input.size)
     val size = width * height
     val quarter = size / 4
 
-    input.copyInto(output, 0, 0, size) // Y is the same
+    input.copyInto(output, 0, 0, size)
 
     for (n in 0 until quarter) {
-      output[size + n * 2] = input[size + quarter + n] // V first
-      output[size + n * 2 + 1] = input[size + n] // U second
+      output[size + n * 2] = input[size + quarter + n]
+      output[size + n * 2 + 1] = input[size + n]
     }
     return output
   }
@@ -266,7 +393,6 @@ class StreamViewModel(
             val byteArray = ByteArray(photo.data.remaining())
             photo.data.get(byteArray)
 
-            // Extract EXIF transformation matrix and apply to bitmap
             val exifInfo = getExifInfo(byteArray)
             val transform = getTransform(exifInfo)
             decodeHeic(byteArray, transform)
@@ -275,9 +401,9 @@ class StreamViewModel(
     _uiState.update { it.copy(capturedPhoto = capturedPhoto, isShareDialogVisible = true) }
   }
 
-  // HEIC Decoding with EXIF transformation
   private fun decodeHeic(heicBytes: ByteArray, transform: Matrix): Bitmap {
     val bitmap = BitmapFactory.decodeByteArray(heicBytes, 0, heicBytes.size)
+        ?: throw IOException("Unable to decode HEIC photo")
     return applyTransform(bitmap, transform)
   }
 
@@ -294,7 +420,7 @@ class StreamViewModel(
     val matrix = Matrix()
 
     if (exifInfo == null) {
-      return matrix // Identity matrix (no transformation)
+      return matrix
     }
 
     when (
@@ -303,33 +429,21 @@ class StreamViewModel(
             ExifInterface.ORIENTATION_NORMAL,
         )
     ) {
-      ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> {
-        matrix.postScale(-1f, 1f)
-      }
-      ExifInterface.ORIENTATION_ROTATE_180 -> {
-        matrix.postRotate(180f)
-      }
-      ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
-        matrix.postScale(1f, -1f)
-      }
+      ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+      ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+      ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
       ExifInterface.ORIENTATION_TRANSPOSE -> {
         matrix.postRotate(90f)
         matrix.postScale(-1f, 1f)
       }
-      ExifInterface.ORIENTATION_ROTATE_90 -> {
-        matrix.postRotate(90f)
-      }
+      ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
       ExifInterface.ORIENTATION_TRANSVERSE -> {
         matrix.postRotate(270f)
         matrix.postScale(-1f, 1f)
       }
-      ExifInterface.ORIENTATION_ROTATE_270 -> {
-        matrix.postRotate(270f)
-      }
+      ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
       ExifInterface.ORIENTATION_NORMAL,
-      ExifInterface.ORIENTATION_UNDEFINED -> {
-        // No transformation needed
-      }
+      ExifInterface.ORIENTATION_UNDEFINED -> Unit
     }
 
     return matrix
@@ -355,7 +469,6 @@ class StreamViewModel(
   override fun onCleared() {
     super.onCleared()
     stopStream()
-    stateJob?.cancel()
   }
 
   class Factory(

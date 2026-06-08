@@ -27,8 +27,8 @@ class AudioManager {
   init() {
     self.outputFormat = AVAudioFormat(
       commonFormat: .pcmFormatInt16,
-      sampleRate: GeminiConfig.outputAudioSampleRate,
-      channels: GeminiConfig.audioChannels,
+      sampleRate: GrokConfig.outputAudioSampleRate,
+      channels: GrokConfig.audioChannels,
       interleaved: true
     )!
   }
@@ -53,7 +53,7 @@ class AudioManager {
         options: [.allowBluetoothHFP, .mixWithOthers, .defaultToSpeaker]
       )
     }
-    try session.setPreferredSampleRate(GeminiConfig.inputAudioSampleRate)
+    try session.setPreferredSampleRate(GrokConfig.inputAudioSampleRate)
     try session.setPreferredIOBufferDuration(0.064)
     try session.setActive(true)
     if SettingsManager.shared.speakerOutputEnabled {
@@ -72,8 +72,8 @@ class AudioManager {
     audioEngine.attach(playerNode)
     let playerFormat = AVAudioFormat(
       commonFormat: .pcmFormatFloat32,
-      sampleRate: GeminiConfig.outputAudioSampleRate,
-      channels: GeminiConfig.audioChannels,
+      sampleRate: GrokConfig.outputAudioSampleRate,
+      channels: GrokConfig.audioChannels,
       interleaved: false
     )!
     audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: playerFormat)
@@ -88,8 +88,8 @@ class AudioManager {
 
     // Always tap in native format (Float32) and convert to Int16 PCM manually.
     // AVAudioEngine taps don't reliably convert between sample formats inline.
-    let needsResample = inputNativeFormat.sampleRate != GeminiConfig.inputAudioSampleRate
-        || inputNativeFormat.channelCount != GeminiConfig.audioChannels
+    let needsResample = inputNativeFormat.sampleRate != GrokConfig.inputAudioSampleRate
+        || inputNativeFormat.channelCount != GrokConfig.audioChannels
 
     NSLog("[Audio] Needs resample: %@", needsResample ? "YES" : "NO")
 
@@ -99,8 +99,8 @@ class AudioManager {
     if needsResample {
       let resampleFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
-        sampleRate: GeminiConfig.inputAudioSampleRate,
-        channels: GeminiConfig.audioChannels,
+        sampleRate: GrokConfig.inputAudioSampleRate,
+        channels: GrokConfig.audioChannels,
         interleaved: false
       )!
       converter = AVAudioConverter(from: inputNativeFormat, to: resampleFormat)
@@ -116,8 +116,8 @@ class AudioManager {
       if let converter {
         let resampleFormat = AVAudioFormat(
           commonFormat: .pcmFormatFloat32,
-          sampleRate: GeminiConfig.inputAudioSampleRate,
-          channels: GeminiConfig.audioChannels,
+          sampleRate: GrokConfig.inputAudioSampleRate,
+          channels: GrokConfig.audioChannels,
           interleaved: false
         )!
         guard let resampled = self.convertBuffer(buffer, using: converter, targetFormat: resampleFormat) else {
@@ -129,7 +129,7 @@ class AudioManager {
         pcmData = self.float32BufferToInt16Data(buffer)
       }
 
-      // Accumulate into ~100ms chunks before sending to Gemini
+      // Accumulate into ~100ms chunks before sending to Grok
       self.sendQueue.async {
         self.accumulatedData.append(pcmData)
         if self.accumulatedData.count >= self.minSendBytes {
@@ -154,12 +154,12 @@ class AudioManager {
 
     let playerFormat = AVAudioFormat(
       commonFormat: .pcmFormatFloat32,
-      sampleRate: GeminiConfig.outputAudioSampleRate,
-      channels: GeminiConfig.audioChannels,
+      sampleRate: GrokConfig.outputAudioSampleRate,
+      channels: GrokConfig.audioChannels,
       interleaved: false
     )!
 
-    let frameCount = UInt32(data.count) / (GeminiConfig.audioBitsPerSample / 8 * GeminiConfig.audioChannels)
+    let frameCount = UInt32(data.count) / (GrokConfig.audioBitsPerSample / 8 * GrokConfig.audioChannels)
     guard frameCount > 0 else { return }
 
     guard let buffer = AVAudioPCMBuffer(pcmFormat: playerFormat, frameCapacity: frameCount) else { return }

@@ -12,7 +12,7 @@ enum WebRTCConnectionState: Equatable {
 }
 
 /// Orchestrates the WebRTC live streaming session: signaling, peer connection, and frame forwarding.
-/// Follows the same @MainActor ObservableObject pattern as GeminiSessionViewModel.
+/// Follows the same @MainActor ObservableObject pattern as GrokSessionViewModel.
 @MainActor
 class WebRTCSessionViewModel: ObservableObject {
   @Published var isActive: Bool = false

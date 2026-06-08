@@ -14,7 +14,7 @@ enum SignalingMessage {
 }
 
 /// WebSocket client for WebRTC signaling. Exchanges SDP offers/answers and ICE candidates
-/// via a relay server. Follows the same URLSessionWebSocketTask pattern as GeminiLiveService.
+/// via a relay server. Follows the same URLSessionWebSocketTask pattern as GrokLiveService.
 class SignalingClient {
   var onMessageReceived: ((SignalingMessage) -> Void)?
   var onConnected: (() -> Void)?

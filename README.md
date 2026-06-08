@@ -6,7 +6,7 @@ A real-time AI assistant for Meta Ray-Ban smart glasses. See what you see, hear 
 
 ![Cover](assets/cover.png)
 
-Built on [Meta Wearables DAT SDK](https://github.com/facebook/meta-wearables-dat-ios) (iOS) / [DAT Android SDK](https://github.com/nichochar/openclaw) (Android) + [Gemini Live API](https://ai.google.dev/gemini-api/docs/live) + [OpenClaw](https://github.com/nichochar/openclaw) (optional).
+Built on [Meta Wearables DAT SDK](https://github.com/facebook/meta-wearables-dat-ios) (iOS) / [DAT Android SDK](https://github.com/facebook/meta-wearables-dat-android) (Android) + [xAI Voice Agent API](https://docs.x.ai/developers/model-capabilities/audio/voice-agent) + [OpenClaw](https://github.com/nichochar/openclaw) (optional).
 
 **Supported platforms:** iOS (iPhone) and Android (Pixel, Samsung, etc.)
 
@@ -14,12 +14,12 @@ Built on [Meta Wearables DAT SDK](https://github.com/facebook/meta-wearables-dat
 
 Put on your glasses, tap the AI button, and talk:
 
-- **"What am I looking at?"** -- Gemini sees through your glasses camera and describes the scene
+- **"What am I looking at?"** -- Grok sees through your glasses camera and describes the scene
 - **"Add milk to my shopping list"** -- delegates to OpenClaw, which adds it via your connected apps
 - **"Send a message to John saying I'll be late"** -- routes through OpenClaw to WhatsApp/Telegram/iMessage
 - **"Search for the best coffee shops nearby"** -- web search via OpenClaw, results spoken back
 
-The glasses camera streams at ~1fps to Gemini for visual context, while audio flows bidirectionally in real-time.
+Audio flows bidirectionally through Grok's realtime voice socket. Camera frames are sampled, summarized through Grok image understanding, and injected into the voice session as compact visual context. On display-capable Ray-Ban glasses, the app can also push concise HUD cards for transcripts, visual context, tool progress, and model-authored status.
 
 ## How It Works
 
@@ -32,12 +32,13 @@ Meta Ray-Ban Glasses (or phone camera)
        v
 iOS / Android App (this project)
        |
-       | JPEG frames (~1fps) + PCM audio (16kHz)
+       | PCM audio (16kHz)
        v
-Gemini Live API (WebSocket)
+Grok Voice Agent API (WebSocket)
        |
        |-- Audio response (PCM 24kHz) --> App --> Speaker
        |-- Tool calls (execute) -------> App --> OpenClaw Gateway
+       |-- Tool calls (display_hud) ---> App --> Ray-Ban Display HUD
        |                                              |
        |                                              v
        |                                      56+ skills: web search,
@@ -47,12 +48,17 @@ Gemini Live API (WebSocket)
        |<---- Tool response (text) <----- App <-------+
        |
        v
-  Gemini speaks the result
+  Grok speaks the result
+
+JPEG frames are sent separately to Grok image understanding every few seconds, then the resulting visual summary is added to the realtime conversation.
 ```
 
 **Key pieces:**
-- **Gemini Live** -- real-time voice + vision AI over WebSocket (native audio, not STT-first)
-- **OpenClaw** (optional) -- local gateway that gives Gemini access to 56+ tools and all your connected apps
+- **Grok Voice Agent** -- real-time speech-to-speech over WebSocket (native audio, not STT-first)
+- **Grok image understanding** -- sampled camera frames become compact visual summaries for the voice session
+- **Wake word** -- optional Picovoice Porcupine listener starts Grok hands-free
+- **Display HUD** -- Ray-Ban Display cards for status, transcripts, visual context, and tool results
+- **OpenClaw** (optional) -- local gateway that gives Grok access to 56+ tools and all your connected apps
 - **Phone mode** -- test the full pipeline using your phone camera instead of glasses
 - **WebRTC streaming** -- share your glasses POV live to a browser viewer
 
@@ -63,7 +69,7 @@ Gemini Live API (WebSocket)
 ### 1. Clone and open
 
 ```bash
-git clone https://github.com/sseanliu/VisionClaw.git
+git clone git@github.com:benkraus/VisionClaw.git
 cd VisionClaw/samples/CameraAccess
 open CameraAccess.xcodeproj
 ```
@@ -76,7 +82,7 @@ Copy the example file and fill in your values:
 cp CameraAccess/Secrets.swift.example CameraAccess/Secrets.swift
 ```
 
-Edit `Secrets.swift` with your [Gemini API key](https://aistudio.google.com/apikey) (required) and optional OpenClaw/WebRTC config.
+Edit `Secrets.swift` with either your [Grok API key](https://console.x.ai) or a Grok auth broker URL, plus optional OpenClaw/WebRTC/Picovoice config.
 
 ### 3. Build and run
 
@@ -86,8 +92,10 @@ Select your iPhone as the target device and hit Run (Cmd+R).
 
 **Without glasses (iPhone mode):**
 1. Tap **"Start on iPhone"** -- uses your iPhone's back camera
-2. Tap the **AI button** to start a Gemini Live session
+2. Tap the **AI button** to start a Grok voice session
 3. Talk to the AI -- it can see through your iPhone camera
+
+If Wake Word is enabled in Settings, the stream starts a local Porcupine listener automatically. Say the configured keyword (default: `jarvis`) to start Grok.
 
 **With Meta Ray-Ban glasses:**
 
@@ -105,6 +113,8 @@ Then in VisionClaw:
 1. Tap **"Start Streaming"** in the app
 2. Tap the **AI button** for voice + vision conversation
 
+If Wake Word is enabled in Settings, the app listens locally for the configured keyword while streaming and auto-resumes listening after Grok stops.
+
 ---
 
 ## Quick Start (Android)
@@ -112,7 +122,7 @@ Then in VisionClaw:
 ### 1. Clone and open
 
 ```bash
-git clone https://github.com/sseanliu/VisionClaw.git
+git clone git@github.com:benkraus/VisionClaw.git
 ```
 
 Open `samples/CameraAccessAndroid/` in Android Studio.
@@ -139,7 +149,7 @@ cd samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externals
 cp Secrets.kt.example Secrets.kt
 ```
 
-Edit `Secrets.kt` with your [Gemini API key](https://aistudio.google.com/apikey) (required) and optional OpenClaw/WebRTC config.
+Edit `Secrets.kt` with either your [Grok API key](https://console.x.ai) or a Grok auth broker URL, plus optional OpenClaw/WebRTC/Picovoice config.
 
 ### 4. Build and run
 
@@ -153,8 +163,10 @@ Edit `Secrets.kt` with your [Gemini API key](https://aistudio.google.com/apikey)
 
 **Without glasses (Phone mode):**
 1. Tap **"Start on Phone"** -- uses your phone's back camera
-2. Tap the **AI button** (sparkle icon) to start a Gemini Live session
+2. Tap the **AI button** (sparkle icon) to start a Grok voice session
 3. Talk to the AI -- it can see through your phone camera
+
+If Wake Word is enabled in Settings, the stream starts a local Porcupine listener automatically. Say the configured keyword (default: `jarvis`) to start Grok.
 
 **With Meta Ray-Ban glasses:**
 
@@ -162,11 +174,27 @@ Enable Developer Mode in the Meta AI app (same steps as iOS above), then:
 1. Tap **"Start Streaming"** in the app
 2. Tap the **AI button** for voice + vision conversation
 
+If Wake Word is enabled in Settings, the app listens locally for the configured keyword while streaming and auto-resumes listening after Grok stops.
+
+---
+
+## Setup: Wake Word (Optional)
+
+VisionClaw can use [Picovoice Porcupine](https://picovoice.ai/platform/porcupine/) for on-device wake-word detection. The feature is disabled by default.
+
+1. Create a Picovoice AccessKey in [Picovoice Console](https://console.picovoice.ai/)
+2. Add it to `Secrets.swift` / `Secrets.kt`, or paste it into the in-app Settings screen
+3. Enable **Wake Word** in Settings
+4. Use the built-in keyword field for bundled keywords such as `jarvis`, `porcupine`, `computer`, `hey google`, or `picovoice`
+5. For a custom keyword, generate a platform-specific `.ppn` in Picovoice Console and set **Custom Keyword Path** to a bundled resource name or absolute file path
+
+Wake listening stops before Grok opens the realtime mic and can auto-resume when the Grok session ends.
+
 ---
 
 ## Setup: OpenClaw (Optional)
 
-OpenClaw gives Gemini the ability to take real-world actions: send messages, search the web, manage lists, control smart home devices, and more. Without it, Gemini is voice + vision only.
+OpenClaw gives Grok the ability to take real-world actions: send messages, search the web, manage lists, control smart home devices, and more. Without it, Grok is voice + vision only.
 
 ### 1. Install and configure OpenClaw
 
@@ -233,6 +261,45 @@ Now when you talk to the AI, it can execute tasks through OpenClaw.
 
 ---
 
+## Setup: Grok OAuth Broker (Optional)
+
+For a personal build, you can keep xAI/Grok OAuth on your remote host instead of storing an xAI API key in the mobile app. The sample WebRTC/signaling server exposes an authenticated token endpoint at:
+
+```text
+GET /api/grok/token
+```
+
+Configure the server with one of these token sources:
+
+```bash
+# Required for the phone to call /api/grok/token
+export VISIONCLAW_AUTH_TOKEN="your-private-token"
+
+# Option A: refresh an xAI OAuth token on the host
+export XAI_OAUTH_REFRESH_TOKEN="..."
+export XAI_OAUTH_CLIENT_ID="..."
+# Optional, if your OAuth client requires it:
+export XAI_OAUTH_CLIENT_SECRET="..."
+
+# Option B: use a host command that prints either a raw token or JSON
+export XAI_OAUTH_TOKEN_COMMAND="your-command-that-prints-token"
+
+# Option C: static bearer token, useful for quick testing
+export XAI_OAUTH_ACCESS_TOKEN="..."
+```
+
+Then in the app Settings:
+
+- Set **Auth Broker URL** to `https://your-host.example.com/api/grok/token`
+- Set **Auth Broker Token** to `VISIONCLAW_AUTH_TOKEN`
+- Leave **API Key** empty or as the placeholder
+
+When the broker URL is configured, VisionClaw asks your host for a bearer token before opening the xAI realtime WebSocket and before summarizing camera frames. OpenClaw is still used separately for tool/action delegation.
+
+If `VISIONCLAW_AUTH_TOKEN` is not set, the server also accepts `GROK_AUTH_BROKER_TOKEN` or `OPENCLAW_GATEWAY_TOKEN` as the broker auth token.
+
+---
+
 ## Architecture
 
 ### Key Files (iOS)
@@ -241,13 +308,15 @@ All source code is in `samples/CameraAccess/CameraAccess/`:
 
 | File | Purpose |
 |------|---------|
-| `Gemini/GeminiConfig.swift` | API keys, model config, system prompt |
-| `Gemini/GeminiLiveService.swift` | WebSocket client for Gemini Live API |
-| `Gemini/AudioManager.swift` | Mic capture (PCM 16kHz) + audio playback (PCM 24kHz) |
-| `Gemini/GeminiSessionViewModel.swift` | Session lifecycle, tool call wiring, transcript state |
+| `Grok/GrokConfig.swift` | Grok auth, model config, system prompt |
+| `Grok/GrokLiveService.swift` | WebSocket client for the xAI Voice Agent API |
+| `Grok/AudioManager.swift` | Mic capture (PCM 16kHz) + audio playback (PCM 24kHz) |
+| `Grok/GrokSessionViewModel.swift` | Session lifecycle, tool call wiring, transcript state |
+| `Grok/DisplayHUDManager.swift` | Ray-Ban Display session and HUD card rendering |
+| `Grok/WakeWordManager.swift` | Picovoice Porcupine wake-word listener |
 | `OpenClaw/ToolCallModels.swift` | Tool declarations, data types |
 | `OpenClaw/OpenClawBridge.swift` | HTTP client for OpenClaw gateway |
-| `OpenClaw/ToolCallRouter.swift` | Routes Gemini tool calls to OpenClaw |
+| `OpenClaw/ToolCallRouter.swift` | Routes Grok tool calls to OpenClaw |
 | `iPhone/IPhoneCameraManager.swift` | AVCaptureSession wrapper for iPhone camera mode |
 | `WebRTC/WebRTCClient.swift` | WebRTC peer connection + SDP negotiation |
 | `WebRTC/SignalingClient.swift` | WebSocket signaling for WebRTC rooms |
@@ -258,13 +327,15 @@ All source code is in `samples/CameraAccessAndroid/app/src/main/java/.../cameraa
 
 | File | Purpose |
 |------|---------|
-| `gemini/GeminiConfig.kt` | API keys, model config, system prompt |
-| `gemini/GeminiLiveService.kt` | OkHttp WebSocket client for Gemini Live API |
-| `gemini/AudioManager.kt` | AudioRecord (16kHz) + AudioTrack (24kHz) |
-| `gemini/GeminiSessionViewModel.kt` | Session lifecycle, tool call wiring, UI state |
+| `grok/GrokConfig.kt` | Grok auth, model config, system prompt |
+| `grok/GrokLiveService.kt` | OkHttp WebSocket client for the xAI Voice Agent API |
+| `grok/AudioManager.kt` | AudioRecord (16kHz) + AudioTrack (24kHz) |
+| `grok/GrokSessionViewModel.kt` | Session lifecycle, tool call wiring, UI state |
+| `grok/DisplayHudManager.kt` | Ray-Ban Display session and HUD card rendering |
+| `grok/WakeWordManager.kt` | Picovoice Porcupine wake-word listener |
 | `openclaw/ToolCallModels.kt` | Tool declarations, data classes |
 | `openclaw/OpenClawBridge.kt` | OkHttp HTTP client for OpenClaw gateway |
-| `openclaw/ToolCallRouter.kt` | Routes Gemini tool calls to OpenClaw |
+| `openclaw/ToolCallRouter.kt` | Routes Grok tool calls to OpenClaw |
 | `phone/PhoneCameraManager.kt` | CameraX wrapper for phone camera mode |
 | `webrtc/WebRTCClient.kt` | WebRTC peer connection (stream-webrtc-android) |
 | `webrtc/SignalingClient.kt` | OkHttp WebSocket signaling for WebRTC rooms |
@@ -272,28 +343,32 @@ All source code is in `samples/CameraAccessAndroid/app/src/main/java/.../cameraa
 
 ### Audio Pipeline
 
-- **Input**: Phone mic -> AudioManager (PCM Int16, 16kHz mono, 100ms chunks) -> Gemini WebSocket
-- **Output**: Gemini WebSocket -> AudioManager playback queue -> Phone speaker
+- **Input**: Phone mic -> AudioManager (PCM Int16, 16kHz mono, 100ms chunks) -> Grok WebSocket
+- **Wake word**: Porcupine listens locally before a Grok session starts; the Grok mic takes over only after detection
+- **Output**: Grok WebSocket -> AudioManager playback queue -> Phone speaker
 - **iOS iPhone mode**: Uses `.voiceChat` audio session for echo cancellation + mic gating during AI speech
 - **iOS Glasses mode**: Uses `.videoChat` audio session (mic is on glasses, speaker is on phone -- no echo)
 - **Android**: Uses `VOICE_COMMUNICATION` audio source for built-in acoustic echo cancellation
 
 ### Video Pipeline
 
-- **Glasses**: DAT SDK video stream (24fps) -> throttle to ~1fps -> JPEG (50% quality) -> Gemini
-- **Phone**: Camera capture (30fps) -> throttle to ~1fps -> JPEG -> Gemini
+- **Glasses**: DAT SDK video stream (24fps) -> throttle to every ~3 seconds -> JPEG -> Grok image understanding -> visual context item in the voice session
+- **Phone**: Camera capture (30fps) -> throttle to every ~3 seconds -> JPEG -> Grok image understanding -> visual context item in the voice session
 
 ### Tool Calling
 
-Gemini Live supports function calling. Both apps declare a single `execute` tool that routes everything through OpenClaw:
+Grok Voice Agent supports function calling. Both apps declare two client-side tools:
+
+- `execute`: routes real-world tasks through OpenClaw.
+- `display_hud`: writes a concise card to the Ray-Ban Display HUD.
 
 1. User says "Add eggs to my shopping list"
-2. Gemini speaks "Sure, adding that now" (verbal acknowledgment before tool call)
-3. Gemini sends `toolCall` with `execute(task: "Add eggs to the shopping list")`
+2. Grok speaks "Sure, adding that now" (verbal acknowledgment before tool call)
+3. Grok sends `response.function_call_arguments.done` for `execute(task: "Add eggs to the shopping list")`
 4. `ToolCallRouter` sends HTTP POST to OpenClaw gateway
 5. OpenClaw executes the task using its 56+ connected skills
-6. Result returns to Gemini via `toolResponse`
-7. Gemini speaks the confirmation
+6. Result returns to Grok as a `function_call_output` conversation item
+7. Grok speaks the confirmation
 
 ### WebRTC Live Streaming
 
@@ -310,7 +385,7 @@ Share your glasses POV in real-time to a browser viewer with bidirectional audio
 - **NAT traversal**: Google STUN servers + ExpressTURN relay (fetched from `/api/turn`)
 - **Video**: 24 fps, 2.5 Mbps max bitrate
 - **Background handling**: 60-second grace period for iOS app backgrounding -- room stays alive for reconnection
-- **Constraint**: Cannot run simultaneously with Gemini Live (audio device conflict)
+- **Constraint**: Cannot run simultaneously with a Grok voice session (audio device conflict)
 
 For full details, see [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](samples/CameraAccess/CameraAccess/WebRTC/README.md).
 
@@ -321,16 +396,20 @@ For full details, see [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](sam
 ### iOS
 - iOS 17.0+
 - Xcode 15.0+
-- Gemini API key ([get one free](https://aistudio.google.com/apikey))
+- Grok API key or Grok auth broker
+- Picovoice AccessKey (optional -- for wake word)
 - Meta Ray-Ban glasses (optional -- use iPhone mode for testing)
+- Meta Ray-Ban Display glasses (optional -- for HUD support)
 - OpenClaw on your Mac (optional -- for agentic actions)
 
 ### Android
 - Android 14+ (API 34+)
 - Android Studio Ladybug or newer
 - GitHub account with `read:packages` token (for DAT SDK)
-- Gemini API key ([get one free](https://aistudio.google.com/apikey))
+- Grok API key or Grok auth broker
+- Picovoice AccessKey (optional -- for wake word)
 - Meta Ray-Ban glasses (optional -- use Phone mode for testing)
+- Meta Ray-Ban Display glasses (optional -- for HUD support)
 - OpenClaw on your Mac (optional -- for agentic actions)
 
 ---
@@ -339,7 +418,9 @@ For full details, see [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](sam
 
 ### General
 
-**Gemini doesn't hear me** -- Check that microphone permission is granted. The app uses aggressive voice activity detection -- speak clearly and at normal volume.
+**Grok doesn't hear me** -- Check that microphone permission is granted. The app uses aggressive voice activity detection -- speak clearly and at normal volume.
+
+**Wake word does not start** -- Make sure Wake Word is enabled, the Picovoice AccessKey is set, microphone permission is granted, and any custom `.ppn` matches the platform you are running on.
 
 **OpenClaw connection timeout** -- Make sure your phone and Mac are on the same Wi-Fi network, the gateway is running (`openclaw gateway restart`), and the hostname matches your Mac's Bonjour name.
 
@@ -347,15 +428,15 @@ For full details, see [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](sam
 
 ### iOS-specific
 
-**"Gemini API key not configured"** -- Add your API key in Secrets.swift or in the in-app Settings.
+**"Grok auth not configured"** -- Add a Grok API key or Grok auth broker URL in Secrets.swift / Secrets.kt or in the in-app Settings.
 
 **Echo/feedback in iPhone mode** -- The app mutes the mic while the AI is speaking. If you still hear echo, try turning down the volume.
 
 ### Android-specific
 
-**Gradle sync fails with 401 Unauthorized** -- Your GitHub token is missing or doesn't have `read:packages` scope. Check `local.properties` for `gpr.user` and `gpr.token`. Generate a new token at [github.com/settings/tokens](https://github.com/settings/tokens).
+**Gradle sync fails with 401 Unauthorized** -- Your GitHub token is missing or doesn't have `read:packages` scope. Set `GITHUB_TOKEN` in your shell or add `github_token=...` to `samples/CameraAccessAndroid/local.properties`. Generate a new token at [github.com/settings/tokens](https://github.com/settings/tokens).
 
-**Gemini WebSocket times out** -- The Gemini Live API sends binary WebSocket frames. If you're building a custom client, make sure to handle both text and binary frame types.
+**Grok WebSocket times out** -- Check that your xAI bearer source is valid and that your network allows WebSocket connections to `wss://api.x.ai/v1/realtime`.
 
 **Audio not working** -- Ensure `RECORD_AUDIO` permission is granted. On Android 13+, you may need to grant this permission manually in Settings > Apps.
 

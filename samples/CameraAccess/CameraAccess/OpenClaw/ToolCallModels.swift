@@ -1,33 +1,35 @@
 import Foundation
 
-// MARK: - Gemini Tool Call (parsed from server JSON)
+// MARK: - Grok Tool Call (parsed from server JSON)
 
-struct GeminiFunctionCall {
+struct GrokFunctionCall {
   let id: String
   let name: String
   let args: [String: Any]
 }
 
-struct GeminiToolCall {
-  let functionCalls: [GeminiFunctionCall]
+struct GrokToolCall {
+  let functionCalls: [GrokFunctionCall]
 
   init?(json: [String: Any]) {
-    guard let toolCall = json["toolCall"] as? [String: Any],
-          let calls = toolCall["functionCalls"] as? [[String: Any]] else {
+    guard json["type"] as? String == "response.function_call_arguments.done",
+          let callId = json["call_id"] as? String,
+          let name = json["name"] as? String else {
       return nil
     }
-    self.functionCalls = calls.compactMap { call in
-      guard let id = call["id"] as? String,
-            let name = call["name"] as? String else { return nil }
-      let args = call["args"] as? [String: Any] ?? [:]
-      return GeminiFunctionCall(id: id, name: name, args: args)
+    var args: [String: Any] = [:]
+    if let arguments = json["arguments"] as? String,
+       let data = arguments.data(using: .utf8),
+       let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+      args = object
     }
+    self.functionCalls = [GrokFunctionCall(id: callId, name: name, args: args)]
   }
 }
 
-// MARK: - Gemini Tool Call Cancellation
+// MARK: - Grok Tool Call Cancellation
 
-struct GeminiToolCallCancellation {
+struct GrokToolCallCancellation {
   let ids: [String]
 
   init?(json: [String: Any]) {
@@ -80,15 +82,16 @@ enum ToolCallStatus: Equatable {
   }
 }
 
-// MARK: - Tool Declarations (for Gemini setup message)
+// MARK: - Tool Declarations (for Grok setup message)
 
 enum ToolDeclarations {
 
   static func allDeclarations() -> [[String: Any]] {
-    return [execute]
+    return [execute, displayHUD]
   }
 
   static let execute: [String: Any] = [
+    "type": "function",
     "name": "execute",
     "description": "Your only way to take action. You have no memory, storage, or ability to do anything on your own -- use this tool for everything: sending messages, searching the web, adding to lists, setting reminders, creating notes, research, drafts, scheduling, smart home control, app interactions, or any request that goes beyond answering a question. When in doubt, use this tool.",
     "parameters": [
@@ -100,7 +103,31 @@ enum ToolDeclarations {
         ]
       ],
       "required": ["task"]
-    ] as [String: Any],
-    "behavior": "BLOCKING"
+    ] as [String: Any]
+  ]
+
+  static let displayHUD: [String: Any] = [
+    "type": "function",
+    "name": "display_hud",
+    "description": "Write a short card to the Ray-Ban Display HUD. Use this for task status, results, confirmations, warnings, step lists, navigation hints, and visual summaries that should remain glanceable.",
+    "parameters": [
+      "type": "object",
+      "properties": [
+        "title": [
+          "type": "string",
+          "description": "Short title, ideally under 24 characters."
+        ],
+        "body": [
+          "type": "string",
+          "description": "One or two short lines of display text."
+        ],
+        "kind": [
+          "type": "string",
+          "enum": ["status", "result", "warning", "steps", "navigation", "confirmation"],
+          "description": "The HUD card category."
+        ]
+      ],
+      "required": ["title", "body"]
+    ] as [String: Any]
   ]
 }

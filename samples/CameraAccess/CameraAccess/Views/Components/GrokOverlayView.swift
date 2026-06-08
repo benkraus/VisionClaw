@@ -1,20 +1,24 @@
 import SwiftUI
 
-struct GeminiStatusBar: View {
-  @ObservedObject var geminiVM: GeminiSessionViewModel
+struct GrokStatusBar: View {
+  @ObservedObject var grokVM: GrokSessionViewModel
 
   var body: some View {
     HStack(spacing: 8) {
-      // Gemini connection pill
-      StatusPill(color: geminiStatusColor, text: geminiStatusText)
+      // Grok connection pill
+      StatusPill(color: grokStatusColor, text: grokStatusText)
 
       // OpenClaw connection pill
       StatusPill(color: openClawStatusColor, text: openClawStatusText)
+
+      // Display HUD connection pill
+      StatusPill(color: hudStatusColor, text: hudStatusText)
     }
   }
 
-  private var geminiStatusColor: Color {
-    switch geminiVM.connectionState {
+  private var grokStatusColor: Color {
+    if grokVM.isWakeWordListening { return .blue }
+    switch grokVM.connectionState {
     case .ready: return .green
     case .connecting, .settingUp: return .yellow
     case .error: return .red
@@ -22,17 +26,18 @@ struct GeminiStatusBar: View {
     }
   }
 
-  private var geminiStatusText: String {
-    switch geminiVM.connectionState {
-    case .ready: return "Gemini"
-    case .connecting, .settingUp: return "Gemini..."
-    case .error: return "Gemini Error"
-    case .disconnected: return "Gemini Off"
+  private var grokStatusText: String {
+    if grokVM.isWakeWordListening { return grokVM.wakeWordState.displayText }
+    switch grokVM.connectionState {
+    case .ready: return "Grok"
+    case .connecting, .settingUp: return "Grok..."
+    case .error: return "Grok Error"
+    case .disconnected: return "Grok Off"
     }
   }
 
   private var openClawStatusColor: Color {
-    switch geminiVM.openClawConnectionState {
+    switch grokVM.openClawConnectionState {
     case .connected: return .green
     case .checking: return .yellow
     case .unreachable: return .red
@@ -41,12 +46,25 @@ struct GeminiStatusBar: View {
   }
 
   private var openClawStatusText: String {
-    switch geminiVM.openClawConnectionState {
+    switch grokVM.openClawConnectionState {
     case .connected: return "OpenClaw"
     case .checking: return "OpenClaw..."
     case .unreachable: return "OpenClaw Off"
     case .notConfigured: return "No OpenClaw"
     }
+  }
+
+  private var hudStatusColor: Color {
+    switch grokVM.hudConnectionState {
+    case .ready: return .green
+    case .connecting: return .yellow
+    case .error: return .red
+    case .disabled, .disconnected: return .gray
+    }
+  }
+
+  private var hudStatusText: String {
+    grokVM.hudConnectionState.displayText
   }
 }
 

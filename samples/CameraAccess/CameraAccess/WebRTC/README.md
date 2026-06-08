@@ -109,6 +109,6 @@ Served at `http://<server>:8080/` from `server/public/index.html`.
 
 ## Constraints
 
-- **Mutual exclusion with Gemini Live**: WebRTC and Gemini cannot run simultaneously due to audio device conflicts. The UI disables one when the other is active.
+- **Mutual exclusion with Grok voice**: WebRTC and Grok cannot run simultaneously due to audio device conflicts. The UI disables one when the other is active.
 - **Single viewer**: Only one browser viewer per room.
 - **Background reconnect**: Works within the 60-second grace window. After that, the room is destroyed and a new session is needed.

@@ -65,6 +65,7 @@ dependencies {
   implementation(libs.kotlinx.collections.immutable)
   implementation(libs.mwdat.core)
   implementation(libs.mwdat.camera)
+  implementation(libs.mwdat.display)
   implementation(libs.mwdat.mockdevice)
   // VisionClaw additions
   implementation(libs.okhttp)
@@ -76,6 +77,7 @@ dependencies {
   implementation(libs.datastore.preferences)
   implementation(libs.gson)
   implementation(libs.lifecycle.process)
+  implementation(libs.porcupine.android)
   androidTestImplementation(libs.androidx.ui.test.junit4)
   androidTestImplementation(libs.androidx.test.uiautomator)
   androidTestImplementation(libs.androidx.test.rules)

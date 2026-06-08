@@ -33,18 +33,18 @@ class OpenClawBridge: ObservableObject {
   }
 
   func checkConnection() async {
-    guard GeminiConfig.isOpenClawConfigured else {
+    guard GrokConfig.isOpenClawConfigured else {
       connectionState = .notConfigured
       return
     }
     connectionState = .checking
-    guard let url = URL(string: "\(GeminiConfig.openClawHost):\(GeminiConfig.openClawPort)/v1/chat/completions") else {
+    guard let url = URL(string: "\(GrokConfig.openClawHost):\(GrokConfig.openClawPort)/v1/chat/completions") else {
       connectionState = .unreachable("Invalid URL")
       return
     }
     var request = URLRequest(url: url)
     request.httpMethod = "GET"
-    request.setValue("Bearer \(GeminiConfig.openClawGatewayToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("Bearer \(GrokConfig.openClawGatewayToken)", forHTTPHeaderField: "Authorization")
     request.setValue("glass", forHTTPHeaderField: "x-openclaw-message-channel")
     do {
       let (_, response) = try await pingSession.data(for: request)
@@ -73,7 +73,7 @@ class OpenClawBridge: ObservableObject {
   ) async -> ToolResult {
     lastToolCallStatus = .executing(toolName)
 
-    guard let url = URL(string: "\(GeminiConfig.openClawHost):\(GeminiConfig.openClawPort)/v1/chat/completions") else {
+    guard let url = URL(string: "\(GrokConfig.openClawHost):\(GrokConfig.openClawPort)/v1/chat/completions") else {
       lastToolCallStatus = .failed(toolName, "Invalid URL")
       return .failure("Invalid gateway URL")
     }
@@ -88,7 +88,7 @@ class OpenClawBridge: ObservableObject {
 
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
-    request.setValue("Bearer \(GeminiConfig.openClawGatewayToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("Bearer \(GrokConfig.openClawGatewayToken)", forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue(sessionKey, forHTTPHeaderField: "x-openclaw-session-key")
     request.setValue("glass", forHTTPHeaderField: "x-openclaw-message-channel")

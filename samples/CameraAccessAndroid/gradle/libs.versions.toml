@@ -3,7 +3,7 @@ agp = "8.6.0"
 kotlin = "2.1.20"
 activityCompose = "1.10.1"
 composeBom = "2024.04.01"
-mwdat = "0.4.0"
+mwdat = "0.7.0"
 lifecycle = "2.6.2"
 kotlinxCollectionsImmutable = "0.3.7"
 uiAutomator = "2.3.0"
@@ -16,6 +16,7 @@ camerax = "1.4.1"
 datastore = "1.1.1"
 gson = "2.11.0"
 lifecycleProcess = "2.8.7"
+porcupine = "4.0.0"
 
 [libraries]
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
@@ -24,6 +25,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 mwdat-core = { group = "com.meta.wearable", name = "mwdat-core", version.ref = "mwdat" }
 mwdat-camera = { group = "com.meta.wearable", name = "mwdat-camera", version.ref = "mwdat" }
+mwdat-display = { group = "com.meta.wearable", name = "mwdat-display", version.ref = "mwdat" }
 mwdat-mockdevice = { group = "com.meta.wearable", name = "mwdat-mockdevice", version.ref = "mwdat" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
@@ -41,6 +43,7 @@ camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = 
 datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 lifecycle-process = { group = "androidx.lifecycle", name = "lifecycle-process", version.ref = "lifecycleProcess" }
+porcupine-android = { group = "ai.picovoice", name = "porcupine-android", version.ref = "porcupine" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -4,23 +4,17 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import org.json.JSONArray
 import org.json.JSONObject
 
 class ToolCallRouter(
     private val bridge: OpenClawBridge,
     private val scope: CoroutineScope
 ) {
-    companion object {
-        private const val TAG = "ToolCallRouter"
-        private const val MAX_CONSECUTIVE_FAILURES = 3
-    }
-
     private val inFlightJobs = mutableMapOf<String, Job>()
     private var consecutiveFailures = 0
 
     fun handleToolCall(
-        call: GeminiFunctionCall,
+        call: GrokFunctionCall,
         sendResponse: (JSONObject) -> Unit
     ) {
         val callId = call.id
@@ -35,7 +29,7 @@ class ToolCallRouter(
                 "Tool execution is temporarily unavailable after $consecutiveFailures consecutive failures. " +
                 "Please tell the user you cannot complete this action right now and suggest they check their OpenClaw gateway connection."
             )
-            sendResponse(buildToolResponse(callId, callName, errorResult))
+            sendResponse(buildToolResponse(callId, errorResult))
             return
         }
 
@@ -51,7 +45,7 @@ class ToolCallRouter(
                     is ToolResult.Failure -> consecutiveFailures++
                 }
 
-                val response = buildToolResponse(callId, callName, result)
+                val response = buildToolResponse(callId, result)
                 sendResponse(response)
             } else {
                 Log.d(TAG, "Task $callId was cancelled, skipping response")
@@ -83,19 +77,22 @@ class ToolCallRouter(
         consecutiveFailures = 0
     }
 
-    private fun buildToolResponse(
-        callId: String,
-        name: String,
-        result: ToolResult
-    ): JSONObject {
-        return JSONObject().apply {
-            put("toolResponse", JSONObject().apply {
-                put("functionResponses", JSONArray().put(JSONObject().apply {
-                    put("id", callId)
-                    put("name", name)
-                    put("response", result.toJSON())
-                }))
-            })
+    companion object {
+        private const val TAG = "ToolCallRouter"
+        private const val MAX_CONSECUTIVE_FAILURES = 3
+
+        fun buildToolResponse(
+            callId: String,
+            result: ToolResult
+        ): JSONObject {
+            return JSONObject().apply {
+                put("type", "conversation.item.create")
+                put("item", JSONObject().apply {
+                    put("type", "function_call_output")
+                    put("call_id", callId)
+                    put("output", result.toJSON().toString())
+                })
+            }
         }
     }
 }

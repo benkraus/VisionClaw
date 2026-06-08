@@ -11,7 +11,7 @@ class OpenClawEventClient {
   private let maxReconnectDelay: TimeInterval = 30
 
   func connect() {
-    guard GeminiConfig.isOpenClawConfigured else {
+    guard GrokConfig.isOpenClawConfigured else {
       NSLog("[OpenClawWS] Not configured, skipping")
       return
     }
@@ -34,10 +34,10 @@ class OpenClawEventClient {
   // MARK: - Private
 
   private func establishConnection() {
-    let host = GeminiConfig.openClawHost
+    let host = GrokConfig.openClawHost
       .replacingOccurrences(of: "http://", with: "")
       .replacingOccurrences(of: "https://", with: "")
-    let port = GeminiConfig.openClawPort
+    let port = GrokConfig.openClawPort
     guard let url = URL(string: "ws://\(host):\(port)") else {
       NSLog("[OpenClawWS] Invalid URL")
       return
@@ -138,7 +138,7 @@ class OpenClawEventClient {
         "commands": [] as [String],
         "permissions": [:] as [String: Any],
         "auth": [
-          "token": GeminiConfig.openClawGatewayToken
+          "token": GrokConfig.openClawGatewayToken
         ]
       ] as [String: Any]
     ]

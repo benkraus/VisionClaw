@@ -1,7 +1,7 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.openclaw
 
 import android.util.Log
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiConfig
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.GrokConfig
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,18 +45,18 @@ class OpenClawBridge {
     private val conversationHistory = mutableListOf<JSONObject>()
 
     suspend fun checkConnection() = withContext(Dispatchers.IO) {
-        if (!GeminiConfig.isOpenClawConfigured) {
+        if (!GrokConfig.isOpenClawConfigured) {
             _connectionState.value = OpenClawConnectionState.NotConfigured
             return@withContext
         }
         _connectionState.value = OpenClawConnectionState.Checking
 
-        val url = "${GeminiConfig.openClawHost}:${GeminiConfig.openClawPort}/v1/chat/completions"
+        val url = "${GrokConfig.openClawHost}:${GrokConfig.openClawPort}/v1/chat/completions"
         try {
             val request = Request.Builder()
                 .url(url)
                 .get()
-                .addHeader("Authorization", "Bearer ${GeminiConfig.openClawGatewayToken}")
+                .addHeader("Authorization", "Bearer ${GrokConfig.openClawGatewayToken}")
                 .addHeader("x-openclaw-message-channel", "glass")
                 .build()
 
@@ -87,7 +87,7 @@ class OpenClawBridge {
     ): ToolResult = withContext(Dispatchers.IO) {
         _lastToolCallStatus.value = ToolCallStatus.Executing(toolName)
 
-        val url = "${GeminiConfig.openClawHost}:${GeminiConfig.openClawPort}/v1/chat/completions"
+        val url = "${GrokConfig.openClawHost}:${GrokConfig.openClawPort}/v1/chat/completions"
 
         // Append user message
         conversationHistory.add(JSONObject().apply {
@@ -119,7 +119,7 @@ class OpenClawBridge {
             val request = Request.Builder()
                 .url(url)
                 .post(body.toString().toRequestBody("application/json".toMediaType()))
-                .addHeader("Authorization", "Bearer ${GeminiConfig.openClawGatewayToken}")
+                .addHeader("Authorization", "Bearer ${GrokConfig.openClawGatewayToken}")
                 .addHeader("Content-Type", "application/json")
                 .addHeader("x-openclaw-session-key", sessionKey)
                 .addHeader("x-openclaw-message-channel", "glass")

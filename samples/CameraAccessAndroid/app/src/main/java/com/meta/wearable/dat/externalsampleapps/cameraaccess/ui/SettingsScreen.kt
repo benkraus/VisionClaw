@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,39 +43,75 @@ fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var geminiAPIKey by remember { mutableStateOf(SettingsManager.geminiAPIKey) }
-    var systemPrompt by remember { mutableStateOf(SettingsManager.geminiSystemPrompt) }
+    var grokAPIKey by remember { mutableStateOf(SettingsManager.grokAPIKey) }
+    var grokAuthBrokerURL by remember { mutableStateOf(SettingsManager.grokAuthBrokerURL) }
+    var grokAuthBrokerToken by remember { mutableStateOf(SettingsManager.grokAuthBrokerToken) }
+    var grokVoice by remember { mutableStateOf(SettingsManager.grokVoice) }
+    var systemPrompt by remember { mutableStateOf(SettingsManager.grokSystemPrompt) }
+    var soulPrompt by remember { mutableStateOf(SettingsManager.grokSoulPrompt) }
     var openClawHost by remember { mutableStateOf(SettingsManager.openClawHost) }
     var openClawPort by remember { mutableStateOf(SettingsManager.openClawPort.toString()) }
     var openClawHookToken by remember { mutableStateOf(SettingsManager.openClawHookToken) }
     var openClawGatewayToken by remember { mutableStateOf(SettingsManager.openClawGatewayToken) }
     var webrtcSignalingURL by remember { mutableStateOf(SettingsManager.webrtcSignalingURL) }
     var videoStreamingEnabled by remember { mutableStateOf(SettingsManager.videoStreamingEnabled) }
+    var visionSummariesEnabled by remember { mutableStateOf(SettingsManager.visionSummariesEnabled) }
+    var displayHUDEnabled by remember { mutableStateOf(SettingsManager.displayHUDEnabled) }
     var proactiveNotificationsEnabled by remember { mutableStateOf(SettingsManager.proactiveNotificationsEnabled) }
+    var porcupineAccessKey by remember { mutableStateOf(SettingsManager.porcupineAccessKey) }
+    var wakeWordEnabled by remember { mutableStateOf(SettingsManager.wakeWordEnabled) }
+    var wakeWordBuiltInKeyword by remember { mutableStateOf(SettingsManager.wakeWordBuiltInKeyword) }
+    var wakeWordKeywordPath by remember { mutableStateOf(SettingsManager.wakeWordKeywordPath) }
+    var wakeWordSensitivity by remember { mutableStateOf(SettingsManager.wakeWordSensitivity) }
+    var wakeWordAutoResume by remember { mutableStateOf(SettingsManager.wakeWordAutoResume) }
     var showResetDialog by remember { mutableStateOf(false) }
 
     fun save() {
-        SettingsManager.geminiAPIKey = geminiAPIKey.trim()
-        SettingsManager.geminiSystemPrompt = systemPrompt.trim()
+        SettingsManager.grokAPIKey = grokAPIKey.trim()
+        SettingsManager.grokAuthBrokerURL = grokAuthBrokerURL.trim()
+        SettingsManager.grokAuthBrokerToken = grokAuthBrokerToken.trim()
+        SettingsManager.grokVoice = grokVoice.trim().ifEmpty { "eve" }
+        SettingsManager.grokSystemPrompt = systemPrompt.trim()
+        SettingsManager.grokSoulPrompt = soulPrompt.trim()
         SettingsManager.openClawHost = openClawHost.trim()
         openClawPort.trim().toIntOrNull()?.let { SettingsManager.openClawPort = it }
         SettingsManager.openClawHookToken = openClawHookToken.trim()
         SettingsManager.openClawGatewayToken = openClawGatewayToken.trim()
         SettingsManager.webrtcSignalingURL = webrtcSignalingURL.trim()
         SettingsManager.videoStreamingEnabled = videoStreamingEnabled
+        SettingsManager.visionSummariesEnabled = visionSummariesEnabled
+        SettingsManager.displayHUDEnabled = displayHUDEnabled
         SettingsManager.proactiveNotificationsEnabled = proactiveNotificationsEnabled
+        SettingsManager.porcupineAccessKey = porcupineAccessKey.trim()
+        SettingsManager.wakeWordEnabled = wakeWordEnabled
+        SettingsManager.wakeWordBuiltInKeyword = wakeWordBuiltInKeyword.trim().ifEmpty { "jarvis" }
+        SettingsManager.wakeWordKeywordPath = wakeWordKeywordPath.trim()
+        SettingsManager.wakeWordSensitivity = wakeWordSensitivity
+        SettingsManager.wakeWordAutoResume = wakeWordAutoResume
     }
 
     fun reload() {
-        geminiAPIKey = SettingsManager.geminiAPIKey
-        systemPrompt = SettingsManager.geminiSystemPrompt
+        grokAPIKey = SettingsManager.grokAPIKey
+        grokAuthBrokerURL = SettingsManager.grokAuthBrokerURL
+        grokAuthBrokerToken = SettingsManager.grokAuthBrokerToken
+        grokVoice = SettingsManager.grokVoice
+        systemPrompt = SettingsManager.grokSystemPrompt
+        soulPrompt = SettingsManager.grokSoulPrompt
         openClawHost = SettingsManager.openClawHost
         openClawPort = SettingsManager.openClawPort.toString()
         openClawHookToken = SettingsManager.openClawHookToken
         openClawGatewayToken = SettingsManager.openClawGatewayToken
         webrtcSignalingURL = SettingsManager.webrtcSignalingURL
         videoStreamingEnabled = SettingsManager.videoStreamingEnabled
+        visionSummariesEnabled = SettingsManager.visionSummariesEnabled
+        displayHUDEnabled = SettingsManager.displayHUDEnabled
         proactiveNotificationsEnabled = SettingsManager.proactiveNotificationsEnabled
+        porcupineAccessKey = SettingsManager.porcupineAccessKey
+        wakeWordEnabled = SettingsManager.wakeWordEnabled
+        wakeWordBuiltInKeyword = SettingsManager.wakeWordBuiltInKeyword
+        wakeWordKeywordPath = SettingsManager.wakeWordKeywordPath
+        wakeWordSensitivity = SettingsManager.wakeWordSensitivity
+        wakeWordAutoResume = SettingsManager.wakeWordAutoResume
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -98,13 +135,32 @@ fun SettingsScreen(
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Gemini section
-            SectionHeader("Gemini API")
+            // Grok section
+            SectionHeader("Grok API")
             MonoTextField(
-                value = geminiAPIKey,
-                onValueChange = { geminiAPIKey = it },
+                value = grokAPIKey,
+                onValueChange = { grokAPIKey = it },
                 label = "API Key",
-                placeholder = "Enter Gemini API key",
+                placeholder = "Enter Grok API key",
+            )
+            MonoTextField(
+                value = grokAuthBrokerURL,
+                onValueChange = { grokAuthBrokerURL = it },
+                label = "Auth Broker URL",
+                placeholder = "https://your-host.example.com/api/grok/token",
+                keyboardType = KeyboardType.Uri,
+            )
+            MonoTextField(
+                value = grokAuthBrokerToken,
+                onValueChange = { grokAuthBrokerToken = it },
+                label = "Auth Broker Token",
+                placeholder = "Broker auth token",
+            )
+            MonoTextField(
+                value = grokVoice,
+                onValueChange = { grokVoice = it },
+                label = "Voice",
+                placeholder = "eve, ara, rex, sal, or leo",
             )
 
             SectionHeader("System Prompt")
@@ -113,6 +169,14 @@ fun SettingsScreen(
                 onValueChange = { systemPrompt = it },
                 label = { Text("System prompt") },
                 modifier = Modifier.fillMaxWidth().height(200.dp),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            )
+            SectionHeader("Soul Context")
+            OutlinedTextField(
+                value = soulPrompt,
+                onValueChange = { soulPrompt = it },
+                label = { Text("Optional soul/personality context") },
+                modifier = Modifier.fillMaxWidth().height(140.dp),
                 textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
             )
 
@@ -173,6 +237,119 @@ fun SettingsScreen(
                 Switch(
                     checked = videoStreamingEnabled,
                     onCheckedChange = { videoStreamingEnabled = it },
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Vision Summaries", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Sample frames through Grok image understanding.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = visionSummariesEnabled,
+                    onCheckedChange = { visionSummariesEnabled = it },
+                )
+            }
+
+            SectionHeader("Display HUD")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Display HUD", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Send Grok, OpenClaw, transcript, and visual cards to Ray-Ban Display.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = displayHUDEnabled,
+                    onCheckedChange = { displayHUDEnabled = it },
+                )
+            }
+
+            SectionHeader("Wake Word")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Wake Word", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Listen locally with Picovoice Porcupine.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = wakeWordEnabled,
+                    onCheckedChange = { wakeWordEnabled = it },
+                )
+            }
+            MonoTextField(
+                value = porcupineAccessKey,
+                onValueChange = { porcupineAccessKey = it },
+                label = "Picovoice AccessKey",
+                placeholder = "Enter Picovoice AccessKey",
+            )
+            MonoTextField(
+                value = wakeWordBuiltInKeyword,
+                onValueChange = { wakeWordBuiltInKeyword = it },
+                label = "Built-in Keyword",
+                placeholder = "jarvis",
+            )
+            MonoTextField(
+                value = wakeWordKeywordPath,
+                onValueChange = { wakeWordKeywordPath = it },
+                label = "Custom Keyword Path",
+                placeholder = "optional custom .ppn path or asset path",
+            )
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("Sensitivity", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "%.2f".format(wakeWordSensitivity),
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Slider(
+                    value = wakeWordSensitivity,
+                    onValueChange = { wakeWordSensitivity = it },
+                    valueRange = 0.1f..0.95f,
+                    steps = 16,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text("Auto-resume", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Restart wake listening after Grok stops.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = wakeWordAutoResume,
+                    onCheckedChange = { wakeWordAutoResume = it },
                 )
             }
 

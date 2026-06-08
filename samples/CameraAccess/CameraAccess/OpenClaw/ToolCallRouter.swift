@@ -11,10 +11,10 @@ class ToolCallRouter {
     self.bridge = bridge
   }
 
-  /// Route a tool call from Gemini to OpenClaw. Calls sendResponse with the
-  /// JSON dictionary to send back as a toolResponse message.
+  /// Route a tool call from Grok to OpenClaw. Calls sendResponse with the
+  /// JSON dictionary to send back as a function_call_output message.
   func handleToolCall(
-    _ call: GeminiFunctionCall,
+    _ call: GrokFunctionCall,
     sendResponse: @escaping ([String: Any]) -> Void
   ) {
     let callId = call.id
@@ -31,7 +31,7 @@ class ToolCallRouter {
         "Tool execution is temporarily unavailable after \(consecutiveFailures) consecutive failures. " +
         "Please tell the user you cannot complete this action right now and suggest they check their OpenClaw gateway connection."
       )
-      let response = buildToolResponse(callId: callId, name: callName, result: errorResult)
+      let response = Self.buildToolResponse(callId: callId, result: errorResult)
       sendResponse(response)
       return
     }
@@ -55,7 +55,7 @@ class ToolCallRouter {
       NSLog("[ToolCall] Result for %@ (id: %@): %@",
             callName, callId, String(describing: result))
 
-      let response = self.buildToolResponse(callId: callId, name: callName, result: result)
+      let response = Self.buildToolResponse(callId: callId, result: result)
       sendResponse(response)
 
       self.inFlightTasks.removeValue(forKey: callId)
@@ -88,20 +88,24 @@ class ToolCallRouter {
 
   // MARK: - Private
 
-  private func buildToolResponse(
+  static func buildToolResponse(
     callId: String,
-    name: String,
     result: ToolResult
   ) -> [String: Any] {
+    let output: String
+    if let data = try? JSONSerialization.data(withJSONObject: result.responseValue),
+       let jsonString = String(data: data, encoding: .utf8) {
+      output = jsonString
+    } else {
+      output = "{\"error\":\"Failed to encode tool response\"}"
+    }
+
     return [
-      "toolResponse": [
-        "functionResponses": [
-          [
-            "id": callId,
-            "name": name,
-            "response": result.responseValue
-          ]
-        ]
+      "type": "conversation.item.create",
+      "item": [
+        "type": "function_call_output",
+        "call_id": callId,
+        "output": output
       ]
     ]
   }

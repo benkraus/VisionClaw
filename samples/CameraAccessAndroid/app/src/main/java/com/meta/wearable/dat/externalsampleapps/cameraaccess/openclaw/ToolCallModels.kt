@@ -3,55 +3,51 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.openclaw
 import org.json.JSONArray
 import org.json.JSONObject
 
-// Gemini Tool Call (parsed from server JSON)
+// Grok Tool Call (parsed from server JSON)
 
-data class GeminiFunctionCall(
+data class GrokFunctionCall(
     val id: String,
     val name: String,
     val args: Map<String, Any?>
 )
 
-data class GeminiToolCall(
-    val functionCalls: List<GeminiFunctionCall>
+data class GrokToolCall(
+    val functionCalls: List<GrokFunctionCall>
 ) {
     companion object {
-        fun fromJSON(json: JSONObject): GeminiToolCall? {
-            val toolCall = json.optJSONObject("toolCall") ?: return null
-            val calls = toolCall.optJSONArray("functionCalls") ?: return null
-            val functionCalls = mutableListOf<GeminiFunctionCall>()
-            for (i in 0 until calls.length()) {
-                val call = calls.getJSONObject(i)
-                val id = call.optString("id", "")
-                val name = call.optString("name", "")
-                if (id.isEmpty() || name.isEmpty()) continue
-                val argsObj = call.optJSONObject("args")
-                val args = mutableMapOf<String, Any?>()
-                if (argsObj != null) {
-                    for (key in argsObj.keys()) {
-                        args[key] = argsObj.opt(key)
-                    }
+        fun fromJSON(json: JSONObject): GrokToolCall? {
+            if (json.optString("type") != "response.function_call_arguments.done") return null
+            val id = json.optString("call_id", "")
+            val name = json.optString("name", "")
+            if (id.isEmpty() || name.isEmpty()) return null
+
+            val args = mutableMapOf<String, Any?>()
+            val arguments = json.optString("arguments", "")
+            if (arguments.isNotEmpty()) {
+                val argsObj = JSONObject(arguments)
+                for (key in argsObj.keys()) {
+                    args[key] = argsObj.opt(key)
                 }
-                functionCalls.add(GeminiFunctionCall(id, name, args))
             }
-            return if (functionCalls.isNotEmpty()) GeminiToolCall(functionCalls) else null
+            return GrokToolCall(listOf(GrokFunctionCall(id, name, args)))
         }
     }
 }
 
-// Gemini Tool Call Cancellation
+// Grok Tool Call Cancellation
 
-data class GeminiToolCallCancellation(
+data class GrokToolCallCancellation(
     val ids: List<String>
 ) {
     companion object {
-        fun fromJSON(json: JSONObject): GeminiToolCallCancellation? {
+        fun fromJSON(json: JSONObject): GrokToolCallCancellation? {
             val cancellation = json.optJSONObject("toolCallCancellation") ?: return null
             val idsArray = cancellation.optJSONArray("ids") ?: return null
             val ids = mutableListOf<String>()
             for (i in 0 until idsArray.length()) {
                 ids.add(idsArray.getString(i))
             }
-            return if (ids.isNotEmpty()) GeminiToolCallCancellation(ids) else null
+            return if (ids.isNotEmpty()) GrokToolCallCancellation(ids) else null
         }
     }
 }
@@ -99,15 +95,16 @@ sealed class OpenClawConnectionState {
     data class Unreachable(val message: String) : OpenClawConnectionState()
 }
 
-// Tool Declarations (for Gemini setup message)
+// Tool Declarations (for Grok setup message)
 
 object ToolDeclarations {
     fun allDeclarationsJSON(): JSONArray {
-        return JSONArray().put(executeJSON())
+        return JSONArray().put(executeJSON()).put(displayHudJSON())
     }
 
     private fun executeJSON(): JSONObject {
         return JSONObject().apply {
+            put("type", "function")
             put("name", "execute")
             put("description", "Your only way to take action. You have no memory, storage, or ability to do anything on your own -- use this tool for everything: sending messages, searching the web, adding to lists, setting reminders, creating notes, research, drafts, scheduling, smart home control, app interactions, or any request that goes beyond answering a question. When in doubt, use this tool.")
             put("parameters", JSONObject().apply {
@@ -120,7 +117,32 @@ object ToolDeclarations {
                 })
                 put("required", JSONArray().put("task"))
             })
-            put("behavior", "BLOCKING")
+        }
+    }
+
+    private fun displayHudJSON(): JSONObject {
+        return JSONObject().apply {
+            put("type", "function")
+            put("name", "display_hud")
+            put("description", "Write a short card to the Ray-Ban Display HUD. Use this for task status, results, confirmations, warnings, step lists, navigation hints, and visual summaries that should remain glanceable.")
+            put("parameters", JSONObject().apply {
+                put("type", "object")
+                put("properties", JSONObject().apply {
+                    put("title", JSONObject().apply {
+                        put("type", "string")
+                        put("description", "Short title, ideally under 24 characters.")
+                    })
+                    put("body", JSONObject().apply {
+                        put("type", "string")
+                        put("description", "One or two short lines of display text.")
+                    })
+                    put("kind", JSONObject().apply {
+                        put("type", "string")
+                        put("enum", JSONArray().put("status").put("result").put("warning").put("steps").put("navigation").put("confirmation"))
+                    })
+                })
+                put("required", JSONArray().put("title").put("body"))
+            })
         }
     }
 }

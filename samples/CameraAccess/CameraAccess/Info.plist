@@ -49,10 +49,14 @@
 		<!-- Without Developer Mode, this key will need to be set with your Apple Developer Team ID - Set this in Xcode under Signing & Capabilities -->
 		<key>TeamID</key>
 		<string>$(DEVELOPMENT_TEAM)</string>
+		<key>DAMEnabled</key>
+		<true/>
 	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>processing</string>
+		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
 		<string>external-accessory</string>
 	</array>
@@ -60,6 +64,12 @@
 	<string>Needed to connect to Meta AI Glasses</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>To listen to audio from Meta AI Glasses</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This allows VisionClaw to find and connect to your glasses over Wi-Fi for Display HUD sessions.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_bonjour._tcp</string>
+	</array>
 	<key>UISupportedExternalAccessoryProtocols</key>
 	<array>
 		<string>com.meta.ar.wearable</string>

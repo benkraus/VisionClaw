@@ -11,7 +11,7 @@
 //
 // Main UI for video streaming from Meta wearable devices using the DAT SDK.
 // This view demonstrates the complete streaming API: video streaming with real-time display, photo capture,
-// and error handling. Extended with Gemini Live AI assistant and WebRTC live streaming integration.
+// and error handling. Extended with Grok voice assistant and WebRTC live streaming integration.
 //
 
 import MWDATCore
@@ -20,7 +20,7 @@ import SwiftUI
 struct StreamView: View {
   @ObservedObject var viewModel: StreamSessionViewModel
   @ObservedObject var wearablesVM: WearablesViewModel
-  @ObservedObject var geminiVM: GeminiSessionViewModel
+  @ObservedObject var grokVM: GrokSessionViewModel
   @ObservedObject var webrtcVM: WebRTCSessionViewModel
 
   var body: some View {
@@ -51,23 +51,23 @@ struct StreamView: View {
           .foregroundColor(.white)
       }
 
-      // Gemini status overlay (top) + speaking indicator
-      if geminiVM.isGeminiActive {
+      // Grok status overlay (top) + speaking indicator
+      if grokVM.isGrokActive || grokVM.isWakeWordListening {
         VStack {
-          GeminiStatusBar(geminiVM: geminiVM)
+          GrokStatusBar(grokVM: grokVM)
           Spacer()
 
           VStack(spacing: 8) {
-            if !geminiVM.userTranscript.isEmpty || !geminiVM.aiTranscript.isEmpty {
+            if !grokVM.userTranscript.isEmpty || !grokVM.aiTranscript.isEmpty {
               TranscriptView(
-                userText: geminiVM.userTranscript,
-                aiText: geminiVM.aiTranscript
+                userText: grokVM.userTranscript,
+                aiText: grokVM.aiTranscript
               )
             }
 
-            ToolCallStatusView(status: geminiVM.toolCallStatus)
+            ToolCallStatusView(status: grokVM.toolCallStatus)
 
-            if geminiVM.isModelSpeaking {
+            if grokVM.isModelSpeaking {
               HStack(spacing: 8) {
                 Image(systemName: "speaker.wave.2.fill")
                   .foregroundColor(.white)
@@ -97,17 +97,24 @@ struct StreamView: View {
       // Bottom controls layer
       VStack {
         Spacer()
-        ControlsView(viewModel: viewModel, geminiVM: geminiVM, webrtcVM: webrtcVM)
+        ControlsView(viewModel: viewModel, grokVM: grokVM, webrtcVM: webrtcVM)
       }
       .padding(.all, 24)
+    }
+    .onAppear {
+      grokVM.useDisplayDeviceSession(viewModel.displayDeviceSession)
+      if SettingsManager.shared.wakeWordEnabled, !grokVM.isGrokActive, !grokVM.isWakeWordListening, !webrtcVM.isActive {
+        grokVM.startWakeWordListening()
+      }
     }
     .onDisappear {
       Task {
         if viewModel.streamingStatus != .stopped {
           await viewModel.stopSession()
         }
-        if geminiVM.isGeminiActive {
-          geminiVM.stopSession()
+        grokVM.stopWakeWordListening()
+        if grokVM.isGrokActive {
+          grokVM.stopSession(resumeWakeWord: false)
         }
         if webrtcVM.isActive {
           webrtcVM.stopSession()
@@ -125,14 +132,14 @@ struct StreamView: View {
         )
       }
     }
-    // Gemini error alert
+    // Grok error alert
     .alert("AI Assistant", isPresented: Binding(
-      get: { geminiVM.errorMessage != nil },
-      set: { if !$0 { geminiVM.errorMessage = nil } }
+      get: { grokVM.errorMessage != nil },
+      set: { if !$0 { grokVM.errorMessage = nil } }
     )) {
-      Button("OK") { geminiVM.errorMessage = nil }
+      Button("OK") { grokVM.errorMessage = nil }
     } message: {
-      Text(geminiVM.errorMessage ?? "")
+      Text(grokVM.errorMessage ?? "")
     }
     // WebRTC error alert
     .alert("Live Stream", isPresented: Binding(
@@ -149,7 +156,7 @@ struct StreamView: View {
 // Extracted controls for clarity
 struct ControlsView: View {
   @ObservedObject var viewModel: StreamSessionViewModel
-  @ObservedObject var geminiVM: GeminiSessionViewModel
+  @ObservedObject var grokVM: GrokSessionViewModel
   @ObservedObject var webrtcVM: WebRTCSessionViewModel
 
   var body: some View {
@@ -161,6 +168,10 @@ struct ControlsView: View {
         isDisabled: false
       ) {
         Task {
+          grokVM.stopWakeWordListening()
+          if grokVM.isGrokActive {
+            grokVM.stopSession(resumeWakeWord: false)
+          }
           await viewModel.stopSession()
         }
       }
@@ -172,23 +183,30 @@ struct ControlsView: View {
         }
       }
 
-      // Gemini AI button (disabled when WebRTC is active — audio conflict)
+      // Grok AI button (disabled when WebRTC is active — audio conflict)
       CircleButton(
-        icon: geminiVM.isGeminiActive ? "waveform.circle.fill" : "waveform.circle",
-        text: "AI"
+        icon: grokVM.isGrokActive || grokVM.isWakeWordListening ? "waveform.circle.fill" : "waveform.circle",
+        text: grokVM.isWakeWordListening ? "Wake" : "AI"
       ) {
         Task {
-          if geminiVM.isGeminiActive {
-            geminiVM.stopSession()
+          if grokVM.isGrokActive {
+            grokVM.stopSession()
+          } else if grokVM.isWakeWordListening {
+            grokVM.stopWakeWordListening()
           } else {
-            await geminiVM.startSession()
+            grokVM.useDisplayDeviceSession(viewModel.displayDeviceSession)
+            if SettingsManager.shared.wakeWordEnabled {
+              grokVM.startWakeWordListening()
+            } else {
+              await grokVM.startSession()
+            }
           }
         }
       }
       .opacity(webrtcVM.isActive ? 0.4 : 1.0)
       .disabled(webrtcVM.isActive)
 
-      // WebRTC Live Stream button (disabled when Gemini is active — audio conflict)
+      // WebRTC Live Stream button (disabled when Grok is active — audio conflict)
       CircleButton(
         icon: webrtcVM.isActive
           ? "antenna.radiowaves.left.and.right.circle.fill"
@@ -203,8 +221,8 @@ struct ControlsView: View {
           }
         }
       }
-      .opacity(geminiVM.isGeminiActive ? 0.4 : 1.0)
-      .disabled(geminiVM.isGeminiActive)
+      .opacity(grokVM.isGrokActive || grokVM.isWakeWordListening ? 0.4 : 1.0)
+      .disabled(grokVM.isGrokActive || grokVM.isWakeWordListening)
     }
   }
 }

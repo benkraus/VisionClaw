@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -34,9 +35,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.meta.wearable.dat.camera.types.StreamSessionState
+import com.meta.wearable.dat.camera.types.StreamState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiSessionViewModel
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.grok.GrokSessionViewModel
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.settings.SettingsManager
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamingMode
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
@@ -55,18 +57,21 @@ fun StreamScreen(
                     wearablesViewModel = wearablesViewModel,
                 ),
         ),
-    geminiViewModel: GeminiSessionViewModel = viewModel(),
+    grokViewModel: GrokSessionViewModel = viewModel(),
     webrtcViewModel: WebRTCSessionViewModel = viewModel(),
 ) {
     val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
-    val geminiUiState by geminiViewModel.uiState.collectAsStateWithLifecycle()
+    val grokUiState by grokViewModel.uiState.collectAsStateWithLifecycle()
     val webrtcUiState by webrtcViewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
+    val latestGrokUiState by rememberUpdatedState(grokUiState)
+    val latestWebRTCUiState by rememberUpdatedState(webrtcUiState)
 
-    // Wire Gemini VM to Stream VM for frame forwarding
-    LaunchedEffect(geminiViewModel) {
-        streamViewModel.geminiViewModel = geminiViewModel
+    // Wire Grok VM to Stream VM for frame forwarding
+    LaunchedEffect(grokViewModel) {
+        streamViewModel.grokViewModel = grokViewModel
+        grokViewModel.setDisplayDeviceSession(streamViewModel.currentDeviceSession)
     }
 
     // Wire WebRTC VM to Stream VM for frame forwarding
@@ -77,31 +82,36 @@ fun StreamScreen(
     // Start stream or phone camera
     LaunchedEffect(isPhoneMode) {
         if (isPhoneMode) {
-            geminiViewModel.streamingMode = StreamingMode.PHONE
+            grokViewModel.streamingMode = StreamingMode.PHONE
             streamViewModel.startPhoneCamera(lifecycleOwner)
         } else {
-            geminiViewModel.streamingMode = StreamingMode.GLASSES
+            grokViewModel.streamingMode = StreamingMode.GLASSES
             streamViewModel.startStream()
+        }
+        grokViewModel.setDisplayDeviceSession(streamViewModel.currentDeviceSession)
+        if (SettingsManager.wakeWordEnabled) {
+            grokViewModel.startWakeWordListening(context)
         }
     }
 
     // Clean up on exit
     DisposableEffect(Unit) {
         onDispose {
-            if (geminiUiState.isGeminiActive) {
-                geminiViewModel.stopSession()
+            grokViewModel.stopWakeWordListening()
+            if (latestGrokUiState.isGrokActive) {
+                grokViewModel.stopSession(resumeWakeWord = false)
             }
-            if (webrtcUiState.isActive) {
+            if (latestWebRTCUiState.isActive) {
                 webrtcViewModel.stopSession()
             }
         }
     }
 
     // Show errors as toasts
-    LaunchedEffect(geminiUiState.errorMessage) {
-        geminiUiState.errorMessage?.let { msg ->
+    LaunchedEffect(grokUiState.errorMessage) {
+        grokUiState.errorMessage?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-            geminiViewModel.clearError()
+            grokViewModel.clearError()
         }
     }
     LaunchedEffect(webrtcUiState.errorMessage) {
@@ -122,7 +132,7 @@ fun StreamScreen(
             )
         }
 
-        if (streamUiState.streamSessionState == StreamSessionState.STARTING) {
+        if (streamUiState.streamState == StreamState.STARTING) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
             )
@@ -132,9 +142,9 @@ fun StreamScreen(
         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             // Top overlays (below status bar)
             Column(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 8.dp)) {
-                // Gemini overlay
-                if (geminiUiState.isGeminiActive) {
-                    GeminiOverlay(uiState = geminiUiState)
+                // Grok overlay
+                if (grokUiState.isGrokActive || grokUiState.isWakeWordListening) {
+                    GrokOverlay(uiState = grokUiState)
                 }
 
                 // WebRTC overlay
@@ -147,24 +157,33 @@ fun StreamScreen(
             // Controls at bottom
             ControlsRow(
                 onStopStream = {
-                    if (geminiUiState.isGeminiActive) geminiViewModel.stopSession()
+                    grokViewModel.stopWakeWordListening()
+                    if (grokUiState.isGrokActive) grokViewModel.stopSession(resumeWakeWord = false)
                     if (webrtcUiState.isActive) webrtcViewModel.stopSession()
                     streamViewModel.stopStream()
                     wearablesViewModel.navigateToDeviceSelection()
                 },
                 onCapturePhoto = { streamViewModel.capturePhoto() },
                 onToggleAI = {
-                    if (geminiUiState.isGeminiActive) {
-                        geminiViewModel.stopSession()
+                    if (grokUiState.isGrokActive) {
+                        grokViewModel.stopSession()
+                    } else if (grokUiState.isWakeWordListening) {
+                        grokViewModel.stopWakeWordListening()
                     } else {
-                        geminiViewModel.startSession()
+                        grokViewModel.setDisplayDeviceSession(streamViewModel.currentDeviceSession)
+                        if (SettingsManager.wakeWordEnabled) {
+                            grokViewModel.startWakeWordListening(context)
+                        } else {
+                            grokViewModel.startSession()
+                        }
                     }
                 },
-                isAIActive = geminiUiState.isGeminiActive,
+                isAIActive = grokUiState.isGrokActive || grokUiState.isWakeWordListening,
                 onToggleLive = {
                     if (webrtcUiState.isActive) {
                         webrtcViewModel.stopSession()
-                    } else {
+                    } else if (!grokUiState.isGrokActive) {
+                        grokViewModel.stopWakeWordListening()
                         webrtcViewModel.startSession()
                     }
                 },

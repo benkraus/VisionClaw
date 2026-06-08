@@ -6,30 +6,62 @@ final class SettingsManager {
   private let defaults = UserDefaults.standard
 
   private enum Key: String {
-    case geminiAPIKey
+    case grokAPIKey
+    case grokAuthBrokerURL
+    case grokAuthBrokerToken
     case openClawHost
     case openClawPort
     case openClawHookToken
     case openClawGatewayToken
-    case geminiSystemPrompt
+    case grokSystemPrompt
+    case grokSoulPrompt
+    case grokVoice
     case webrtcSignalingURL
     case speakerOutputEnabled
     case videoStreamingEnabled
+    case visionSummariesEnabled
+    case displayHUDEnabled
     case proactiveNotificationsEnabled
+    case porcupineAccessKey
+    case wakeWordEnabled
+    case wakeWordBuiltInKeyword
+    case wakeWordKeywordPath
+    case wakeWordSensitivity
+    case wakeWordAutoResume
   }
 
   private init() {}
 
-  // MARK: - Gemini
+  // MARK: - Grok
 
-  var geminiAPIKey: String {
-    get { defaults.string(forKey: Key.geminiAPIKey.rawValue) ?? Secrets.geminiAPIKey }
-    set { defaults.set(newValue, forKey: Key.geminiAPIKey.rawValue) }
+  var grokAPIKey: String {
+    get { defaults.string(forKey: Key.grokAPIKey.rawValue) ?? Secrets.grokAPIKey }
+    set { defaults.set(newValue, forKey: Key.grokAPIKey.rawValue) }
   }
 
-  var geminiSystemPrompt: String {
-    get { defaults.string(forKey: Key.geminiSystemPrompt.rawValue) ?? GeminiConfig.defaultSystemInstruction }
-    set { defaults.set(newValue, forKey: Key.geminiSystemPrompt.rawValue) }
+  var grokAuthBrokerURL: String {
+    get { defaults.string(forKey: Key.grokAuthBrokerURL.rawValue) ?? Secrets.grokAuthBrokerURL }
+    set { defaults.set(newValue, forKey: Key.grokAuthBrokerURL.rawValue) }
+  }
+
+  var grokAuthBrokerToken: String {
+    get { defaults.string(forKey: Key.grokAuthBrokerToken.rawValue) ?? Secrets.grokAuthBrokerToken }
+    set { defaults.set(newValue, forKey: Key.grokAuthBrokerToken.rawValue) }
+  }
+
+  var grokSystemPrompt: String {
+    get { defaults.string(forKey: Key.grokSystemPrompt.rawValue) ?? GrokConfig.defaultSystemInstruction }
+    set { defaults.set(newValue, forKey: Key.grokSystemPrompt.rawValue) }
+  }
+
+  var grokSoulPrompt: String {
+    get { defaults.string(forKey: Key.grokSoulPrompt.rawValue) ?? "" }
+    set { defaults.set(newValue, forKey: Key.grokSoulPrompt.rawValue) }
+  }
+
+  var grokVoice: String {
+    get { defaults.string(forKey: Key.grokVoice.rawValue) ?? "eve" }
+    set { defaults.set(newValue, forKey: Key.grokVoice.rawValue) }
   }
 
   // MARK: - OpenClaw
@@ -78,6 +110,18 @@ final class SettingsManager {
     set { defaults.set(newValue, forKey: Key.videoStreamingEnabled.rawValue) }
   }
 
+  var visionSummariesEnabled: Bool {
+    get { defaults.object(forKey: Key.visionSummariesEnabled.rawValue) as? Bool ?? true }
+    set { defaults.set(newValue, forKey: Key.visionSummariesEnabled.rawValue) }
+  }
+
+  // MARK: - Display HUD
+
+  var displayHUDEnabled: Bool {
+    get { defaults.object(forKey: Key.displayHUDEnabled.rawValue) as? Bool ?? true }
+    set { defaults.set(newValue, forKey: Key.displayHUDEnabled.rawValue) }
+  }
+
   // MARK: - Notifications
 
   var proactiveNotificationsEnabled: Bool {
@@ -85,13 +129,55 @@ final class SettingsManager {
     set { defaults.set(newValue, forKey: Key.proactiveNotificationsEnabled.rawValue) }
   }
 
+  // MARK: - Wake Word
+
+  var porcupineAccessKey: String {
+    get { defaults.string(forKey: Key.porcupineAccessKey.rawValue) ?? Secrets.porcupineAccessKey }
+    set { defaults.set(newValue, forKey: Key.porcupineAccessKey.rawValue) }
+  }
+
+  var isPorcupineConfigured: Bool {
+    let key = porcupineAccessKey.trimmingCharacters(in: .whitespacesAndNewlines)
+    return !key.isEmpty && key != "YOUR_PICOVOICE_ACCESS_KEY"
+  }
+
+  var wakeWordEnabled: Bool {
+    get { defaults.object(forKey: Key.wakeWordEnabled.rawValue) as? Bool ?? false }
+    set { defaults.set(newValue, forKey: Key.wakeWordEnabled.rawValue) }
+  }
+
+  var wakeWordBuiltInKeyword: String {
+    get { defaults.string(forKey: Key.wakeWordBuiltInKeyword.rawValue) ?? "jarvis" }
+    set { defaults.set(newValue, forKey: Key.wakeWordBuiltInKeyword.rawValue) }
+  }
+
+  var wakeWordKeywordPath: String {
+    get { defaults.string(forKey: Key.wakeWordKeywordPath.rawValue) ?? "" }
+    set { defaults.set(newValue, forKey: Key.wakeWordKeywordPath.rawValue) }
+  }
+
+  var wakeWordSensitivity: Double {
+    get { defaults.object(forKey: Key.wakeWordSensitivity.rawValue) as? Double ?? 0.65 }
+    set { defaults.set(min(max(newValue, 0.0), 1.0), forKey: Key.wakeWordSensitivity.rawValue) }
+  }
+
+  var wakeWordAutoResume: Bool {
+    get { defaults.object(forKey: Key.wakeWordAutoResume.rawValue) as? Bool ?? true }
+    set { defaults.set(newValue, forKey: Key.wakeWordAutoResume.rawValue) }
+  }
+
   // MARK: - Reset
 
   func resetAll() {
-    for key in [Key.geminiAPIKey, .geminiSystemPrompt, .openClawHost, .openClawPort,
+    for key in [Key.grokAPIKey, .grokAuthBrokerURL, .grokAuthBrokerToken,
+                .grokSystemPrompt, .grokSoulPrompt, .grokVoice,
+                .openClawHost, .openClawPort,
                 .openClawHookToken, .openClawGatewayToken, .webrtcSignalingURL,
-                .speakerOutputEnabled, .videoStreamingEnabled,
-                .proactiveNotificationsEnabled] {
+                .speakerOutputEnabled, .videoStreamingEnabled, .visionSummariesEnabled,
+                .displayHUDEnabled,
+                .proactiveNotificationsEnabled,
+                .porcupineAccessKey, .wakeWordEnabled, .wakeWordBuiltInKeyword,
+                .wakeWordKeywordPath, .wakeWordSensitivity, .wakeWordAutoResume] {
       defaults.removeObject(forKey: key.rawValue)
     }
   }
