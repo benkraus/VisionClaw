@@ -26,6 +26,14 @@ The runner script reads xAI OAuth refresh credentials from:
 ~/.openclaw-winston/agents/main/agent/auth-profiles.json
 ```
 
+It also exports the current OpenClaw xAI access token as
+`XAI_OAUTH_ACCESS_TOKEN` and its expiry as `XAI_OAUTH_ACCESS_TOKEN_EXPIRES_AT`.
+The broker still prefers refresh-token auth, but this gives production a
+short-lived access-token fallback if the refresh endpoint returns a transient
+400 or 5xx. When refresh succeeds, the broker writes the rotated xAI access and
+refresh tokens back to the same OpenClaw auth profile so restarts keep a fresh
+fallback.
+
 No bearer, refresh, or gateway tokens are stored in this repository.
 
 ## Useful Commands

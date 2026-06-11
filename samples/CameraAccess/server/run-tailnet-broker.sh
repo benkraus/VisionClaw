@@ -40,7 +40,18 @@ export XAI_OAUTH_REFRESH_TOKEN="${XAI_OAUTH_REFRESH_TOKEN:-$(jq -er --arg id "$X
 export XAI_OAUTH_TOKEN_URL="${XAI_OAUTH_TOKEN_URL:-$(jq -er --arg id "$XAI_AUTH_PROFILE_ID" "$profile_filter | .tokenEndpoint // \"https://auth.x.ai/oauth2/token\"" "$AUTH_STORE")}"
 export XAI_OAUTH_CLIENT_ID="${XAI_OAUTH_CLIENT_ID:-b1a00492-073a-47ea-816f-4c329264a828}"
 export VISIONCLAW_AUTH_TOKEN="${VISIONCLAW_AUTH_TOKEN:-$(jq -er '.gateway.auth.password // .gateway.auth.token // .hooks.token // empty' "$CONFIG_PATH")}"
+export XAI_AUTH_STORE="$AUTH_STORE"
+export XAI_AUTH_PROFILE_ID
 export PORT
+
+openclaw_access_token="$(jq -r --arg id "$XAI_AUTH_PROFILE_ID" "$profile_filter | .access // empty" "$AUTH_STORE")"
+openclaw_access_expires="$(jq -r --arg id "$XAI_AUTH_PROFILE_ID" "$profile_filter | .expires // empty" "$AUTH_STORE")"
+if [[ -n "$openclaw_access_token" && -z "${XAI_OAUTH_ACCESS_TOKEN:-}" ]]; then
+  export XAI_OAUTH_ACCESS_TOKEN="$openclaw_access_token"
+fi
+if [[ -n "$openclaw_access_expires" && -z "${XAI_OAUTH_ACCESS_TOKEN_EXPIRES_AT:-}" ]]; then
+  export XAI_OAUTH_ACCESS_TOKEN_EXPIRES_AT="$openclaw_access_expires"
+fi
 
 echo "Starting VisionClaw Grok auth broker on 0.0.0.0:$PORT"
 echo "Using OpenClaw profile dir: $OPENCLAW_PROFILE_DIR"

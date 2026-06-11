@@ -280,6 +280,12 @@ export XAI_OAUTH_REFRESH_TOKEN="..."
 export XAI_OAUTH_CLIENT_ID="..."
 # Optional, if your OAuth client requires it:
 export XAI_OAUTH_CLIENT_SECRET="..."
+# Optional fallback if the refresh request returns a transient 400/5xx:
+export XAI_OAUTH_ACCESS_TOKEN="..."
+export XAI_OAUTH_ACCESS_TOKEN_EXPIRES_AT="..."
+# Optional OpenClaw auth-profile path to update after successful refresh:
+export XAI_AUTH_STORE="$HOME/.openclaw-winston/agents/main/agent/auth-profiles.json"
+export XAI_AUTH_PROFILE_ID="xai:you@example.com"
 
 # Option B: use a host command that prints either a raw token or JSON
 export XAI_OAUTH_TOKEN_COMMAND="your-command-that-prints-token"
@@ -287,6 +293,12 @@ export XAI_OAUTH_TOKEN_COMMAND="your-command-that-prints-token"
 # Option C: static bearer token, useful for quick testing
 export XAI_OAUTH_ACCESS_TOKEN="..."
 ```
+
+When both `XAI_OAUTH_REFRESH_TOKEN` and `XAI_OAUTH_ACCESS_TOKEN` are configured,
+the broker refreshes first and only uses the access token as a short-lived
+fallback if refresh fails. If `XAI_AUTH_STORE` is configured, successful
+refreshes are written back to that auth store so restarts keep a current
+fallback.
 
 Then in the app Settings:
 

@@ -19,7 +19,9 @@ const EXPRESSTURN_PASS = process.env.EXPRESSTURN_PASS || "1TJPNFxHKXrZfelz";
 
 // Optional Grok OAuth broker. This lets the mobile apps avoid storing an xAI API key.
 // Configure VISIONCLAW_AUTH_TOKEN, then either XAI_OAUTH_REFRESH_TOKEN +
-// XAI_OAUTH_CLIENT_ID, XAI_OAUTH_ACCESS_TOKEN, or XAI_OAUTH_TOKEN_COMMAND.
+// XAI_OAUTH_CLIENT_ID, XAI_OAUTH_TOKEN_COMMAND, or XAI_OAUTH_ACCESS_TOKEN.
+// When both refresh and access tokens are present, refresh is preferred and the
+// access token is used only as a short-lived fallback.
 const VISIONCLAW_AUTH_TOKEN =
   process.env.VISIONCLAW_AUTH_TOKEN ||
   process.env.GROK_AUTH_BROKER_TOKEN ||
@@ -31,7 +33,11 @@ const XAI_OAUTH_CLIENT_ID = process.env.XAI_OAUTH_CLIENT_ID || "";
 const XAI_OAUTH_CLIENT_SECRET = process.env.XAI_OAUTH_CLIENT_SECRET || "";
 let xaiOAuthRefreshToken = process.env.XAI_OAUTH_REFRESH_TOKEN || "";
 const XAI_OAUTH_ACCESS_TOKEN = process.env.XAI_OAUTH_ACCESS_TOKEN || "";
+const XAI_OAUTH_ACCESS_TOKEN_EXPIRES_AT =
+  process.env.XAI_OAUTH_ACCESS_TOKEN_EXPIRES_AT || "";
 const XAI_OAUTH_TOKEN_COMMAND = process.env.XAI_OAUTH_TOKEN_COMMAND || "";
+const XAI_AUTH_STORE = process.env.XAI_AUTH_STORE || "";
+const XAI_AUTH_PROFILE_ID = process.env.XAI_AUTH_PROFILE_ID || "";
 let cachedGrokAuth = null; // { accessToken, expiresAt }
 
 function getTurnCredentials() {
@@ -94,6 +100,81 @@ function isFresh(auth) {
     return true;
   }
   return expiresAt - Date.now() > 60_000;
+}
+
+function expiresAtFromJwt(token) {
+  const payload = token.split(".")[1];
+  if (!payload) {
+    return null;
+  }
+  try {
+    const json = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (typeof json.exp === "number" && Number.isFinite(json.exp)) {
+      return json.exp * 1000;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function staticAccessTokenAuth() {
+  if (!XAI_OAUTH_ACCESS_TOKEN) {
+    return null;
+  }
+  const expiresAt =
+    expiresAtFromJwt(XAI_OAUTH_ACCESS_TOKEN) ||
+    XAI_OAUTH_ACCESS_TOKEN_EXPIRES_AT;
+  return {
+    accessToken: XAI_OAUTH_ACCESS_TOKEN,
+    expiresAt: normalizeExpiresAt(expiresAt, 300),
+  };
+}
+
+function resolveXaiAuthProfileId(store) {
+  if (XAI_AUTH_PROFILE_ID) {
+    return XAI_AUTH_PROFILE_ID;
+  }
+  return Object.keys(store.profiles || {}).find((key) => key.startsWith("xai:"));
+}
+
+function persistXaiOAuthCredential(auth) {
+  if (!XAI_AUTH_STORE) {
+    return;
+  }
+  try {
+    const store = JSON.parse(fs.readFileSync(XAI_AUTH_STORE, "utf8"));
+    const profileId = resolveXaiAuthProfileId(store);
+    if (!profileId || !store.profiles?.[profileId]) {
+      return;
+    }
+
+    const profile = store.profiles[profileId];
+    profile.type = "oauth";
+    profile.provider = "xai";
+    profile.access = auth.accessToken;
+    if (auth.refreshToken) {
+      profile.refresh = auth.refreshToken;
+    }
+    if (auth.idToken) {
+      profile.idToken = auth.idToken;
+    }
+    const expires = Date.parse(auth.expiresAt || "");
+    if (!Number.isNaN(expires)) {
+      profile.expires = expires;
+    }
+    profile.tokenEndpoint = XAI_OAUTH_TOKEN_URL;
+    profile.issuer = profile.issuer || "https://auth.x.ai";
+
+    const stat = fs.statSync(XAI_AUTH_STORE);
+    const tmpPath = `${XAI_AUTH_STORE}.visionclaw.tmp`;
+    fs.writeFileSync(tmpPath, `${JSON.stringify(store, null, 2)}\n`, {
+      mode: stat.mode & 0o777,
+    });
+    fs.renameSync(tmpPath, XAI_AUTH_STORE);
+  } catch (error) {
+    console.warn(`[GrokAuth] failed to persist refreshed xAI OAuth profile: ${error.message}`);
+  }
 }
 
 function parseCommandToken(stdout) {
@@ -177,10 +258,14 @@ async function refreshXaiOAuthToken() {
   if (json.refresh_token) {
     xaiOAuthRefreshToken = json.refresh_token;
   }
-  return {
+  const auth = {
     accessToken: json.access_token,
+    refreshToken: xaiOAuthRefreshToken,
+    idToken: json.id_token,
     expiresAt: normalizeExpiresAt(null, Number(json.expires_in || 300)),
   };
+  persistXaiOAuthCredential(auth);
+  return auth;
 }
 
 async function getGrokAuthorization() {
@@ -188,17 +273,35 @@ async function getGrokAuthorization() {
     return cachedGrokAuth;
   }
 
-  if (XAI_OAUTH_ACCESS_TOKEN) {
-    cachedGrokAuth = {
-      accessToken: XAI_OAUTH_ACCESS_TOKEN,
-      expiresAt: normalizeExpiresAt(null, 300),
-    };
-    return cachedGrokAuth;
-  }
-
   if (XAI_OAUTH_TOKEN_COMMAND) {
     cachedGrokAuth = await runTokenCommand();
     return cachedGrokAuth;
+  }
+
+  if (xaiOAuthRefreshToken) {
+    try {
+      cachedGrokAuth = await refreshXaiOAuthToken();
+      return cachedGrokAuth;
+    } catch (error) {
+      const fallback = staticAccessTokenAuth();
+      if (isFresh(fallback)) {
+        console.warn(
+          `[GrokAuth] xAI OAuth refresh failed; using access-token fallback: ${error.message}`
+        );
+        cachedGrokAuth = fallback;
+        return cachedGrokAuth;
+      }
+      throw error;
+    }
+  }
+
+  const fallback = staticAccessTokenAuth();
+  if (isFresh(fallback)) {
+    cachedGrokAuth = fallback;
+    return cachedGrokAuth;
+  }
+  if (fallback) {
+    throw new Error("XAI_OAUTH_ACCESS_TOKEN is expired");
   }
 
   cachedGrokAuth = await refreshXaiOAuthToken();
