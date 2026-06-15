@@ -310,6 +310,45 @@ When the broker URL is configured, VisionClaw asks your host for a bearer token 
 
 If `VISIONCLAW_AUTH_TOKEN` is not set, the server also accepts `GROK_AUTH_BROKER_TOKEN` or `OPENCLAW_GATEWAY_TOKEN` as the broker auth token.
 
+### Intended Host Exposure: Tailscale Serve
+
+The intended personal deployment is to expose the broker privately through Tailscale Serve, not through a public tunnel. This keeps `/api/grok/token` reachable only by devices in your tailnet while still giving the iPhone app a normal HTTPS URL with a valid certificate.
+
+On the host running the VisionClaw server:
+
+```bash
+cd samples/CameraAccess/server
+npm install
+
+export PORT=8080
+export VISIONCLAW_AUTH_TOKEN="your-private-token"
+export XAI_OAUTH_REFRESH_TOKEN="..."
+export XAI_OAUTH_CLIENT_ID="..."
+
+npm start
+```
+
+In another shell on the same host:
+
+```bash
+tailscale serve --bg --https=443 127.0.0.1:8080
+tailscale serve status
+```
+
+Use the HTTPS URL shown by `tailscale serve status` as the app's **Auth Broker URL**:
+
+```text
+https://<host>.<tailnet>.ts.net/api/grok/token
+```
+
+For example:
+
+```text
+https://winstons-mac-mini.tail5311f9.ts.net/api/grok/token
+```
+
+The iPhone must be connected to the same tailnet through the Tailscale app. Leave Tailscale Funnel disabled unless you intentionally want public internet access. If you use Cloudflare Tunnel instead, put Cloudflare Access or equivalent authentication in front of the endpoint; the broker returns a bearer token that can be used against xAI.
+
 ---
 
 ## Architecture
