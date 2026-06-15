@@ -321,6 +321,7 @@ cd samples/CameraAccess/server
 npm install
 
 export PORT=8080
+export HOST=127.0.0.1
 export VISIONCLAW_AUTH_TOKEN="your-private-token"
 export XAI_OAUTH_REFRESH_TOKEN="..."
 export XAI_OAUTH_CLIENT_ID="..."

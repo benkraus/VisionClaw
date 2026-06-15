@@ -5,6 +5,7 @@ const { exec } = require("child_process");
 const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 8080;
+const HOST = process.env.HOST || "0.0.0.0";
 const rooms = new Map(); // roomCode -> { creator: ws, viewer: ws, destroyTimer: timeout|null }
 
 // Grace period (ms) before destroying a room when creator disconnects.
@@ -529,7 +530,7 @@ wss.on("connection", (ws, req) => {
   });
 });
 
-httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`Signaling server running on http://0.0.0.0:${PORT}`);
+httpServer.listen(PORT, HOST, () => {
+  console.log(`Signaling server running on http://${HOST}:${PORT}`);
   console.log(`Web viewer available at http://localhost:${PORT}`);
 });
